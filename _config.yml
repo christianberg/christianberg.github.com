@@ -1,0 +1,26 @@
+#
+# Jekyll configuration
+#
+#destination: ./_site
+auto:        true
+lsi:         false # better related posts
+server_port: 8080
+pygments:    true
+markdown:    maruku
+permalink:   pretty
+maruku:
+  use_tex:    false
+  use_divs:   false
+  png_dir:    images/latex
+  png_url:    /images/latex
+
+#
+# Site configuration
+#
+url:          http://christianberg.github.com/
+title:        Compojure on GAE
+description:  Deploying a Clojure web app to Google App Engine
+keywords:     clojure, compojure, ring, app engine, gae
+author:       Christian Berg
+email:        berg.christian@gmail.com
+analytics_id: UA-21431349-1

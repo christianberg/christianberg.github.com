@@ -1,0 +1,23 @@
+---
+layout: default
+---
+
+<div class="row">
+  <div class="ninecol">
+    <h2>{{ page.title }}</h2>
+    <div>
+      {{ content }}
+    </div>
+    <script>
+      var idcomments_acct = '88e964cd0fd47375f375d24129dd2052';
+      var idcomments_post_id = '{{ page.id }}';
+      var idcomments_post_url = '{{ page.url }}';
+      var idcomments_post_title = '{{ page.title }}';
+    </script>
+    <span id="IDCommentsPostTitle" style="display:none"></span>
+    <script type='text/javascript' src='http://www.intensedebate.com/js/genericCommentWrapperV2.js'></script>
+  </div>
+  <div class="threecol last">
+    {% include sidebar %}
+  </div>
+</div>

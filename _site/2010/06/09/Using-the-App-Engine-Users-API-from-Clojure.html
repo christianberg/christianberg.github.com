@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title> Using the App Engine Users API from Clojure |  Compojure on GAE</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <!-- The 1140px Grid -->
+    <link rel="stylesheet" href="/css/1140.css" type="text/css" media="screen" />
+    <!--[if lte IE 9]>
+    <link rel="stylesheet" href="/css/ie.css" type="text/css" media="screen" />
+    <![endif]-->
+    <!-- Type and image presets - NOT ESSENTIAL -->
+    <link rel="stylesheet" href="/css/typeimg.css" type="text/css" media="screen" />
+    <!-- Make minor type adjustments for 1024 monitors -->
+    <link rel="stylesheet" href="/css/smallerscreen.css" media="only screen and (max-width: 1023px)" />
+    <!-- Resets grid for mobile -->
+    <link rel="stylesheet" href="/css/mobile.css" media="handheld, only screen and (max-width: 767px)" />
+    <!-- Put your layout here -->
+    <link rel="stylesheet" href="/css/layout.css" type="text/css"
+    media="screen" />
+     
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', '']);
+  _gaq.push(['_trackPageview']);
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript';
+    ga.async = true;                               
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' :
+    'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0];
+    s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+ 
+
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+  <div class="twelvecol last">
+    <a href="/"><h1>Compojure on GAE</h1></a>
+  </div>
+</div>
+
+      <div class="row">
+  <div class="ninecol">
+    <h2>Using the App Engine Users API from Clojure</h2>
+    <div>
+      <p>In my previous post about <a href='http://compojureongae.posterous.com/accessing-the-app-engine-datastore'>Accessing the Datastore</a> I set up basic security using a <code>security-constraint</code> element in the deployment descriptor (<code>web.xml</code>). This was simple, as the app didn&#8217;t have to be aware of security concerns at all. The downside is that the app doesn&#8217;t know if the user is logged in and can&#8217;t react to that. For example, the &#8220;Create new post&#8221; link is shown to all users, only after clicking it (and logging in) they get an ugly error message about missing privileges. This is bad usability, so let&#8217;s use the App Engine Users API and move the authentication and authorization into the app.</p>
+
+<h2 id='setting_up_the_routes'>Setting up the routes</h2>
+
+<p>To make things easier, I changed my route definitions, separating the public routes from those that need admin privileges. All admin route URLs now start with /admin:</p>
+
+<p>http://gist.github.com/431270</p>
+
+<p>The admin-routes are only allowed to be accessed by logged-in users with admin privileges.<a href='http://github.com/r0man/appengine-clj'>appengine-clj</a> already comes with two middleware functions that help with this: <code>wrap-with-user-info</code> adds references to the UserService and (if a user is logged in) User objects from the App Engine API to each request. <code>wrap-requiring-login</code> checks that the user is logged in before passing the request on to the wrapped handler - if not, the user is redirected to the login page.</p>
+
+<p>There&#8217;s no <code>wrap-requiring-admin</code> (yet), so I quickly wrote it myself:</p>
+
+<p>http://gist.github.com/431336</p>
+
+<p><code>wrap-requiring-admin</code> depends on <code>wrap-requiring-login</code>, which in turn depends on <code>wrap-with-user-info</code>, so I have to decorate my <code>admin-routes</code> handler with all three:</p>
+
+<p>http://gist.github.com/431338</p>
+
+<p>Finally, the routes are combined into my main handler:</p>
+
+<p>http://gist.github.com/431343</p>
+
+<p>Why can&#8217;t I just put <code>admin-routes</code> in there, just like <code>public-routes</code>? The problem is, that the middleware I wrapped around <code>admin-routes</code> jumps in before the route-matching. So even if <code>admin-routes</code> can&#8217;t match the request URL and passes on control to the next handler, it first makes sure that the user is logged in as an admin. In this case, the <code>not-found</code> handler (which always has to be last) could only be reached by admins, all other users would have to login and then get a 403 error when they enter a non-existing URL. Therefor, I have to make sure that the <code>admin-routes</code> handler is only called for URLs starting with /admin.</p>
+
+<h2 id='checking_the_users_login_status'>Checking the users login status</h2>
+
+<p>So far, the new code does the same thing the old configuration did, I haven&#8217;t won anything. So let&#8217;s make the site a little more dynamic and change the output depending on the users login status. I changed the sidebar to display information about the current user and login/logout links. Also, the &#8220;Create new post&#8221; link is only shown for logged-in admin users:</p>
+
+<p>http://gist.github.com/431458</p>
+
+<p>(Note that <code>side-bar</code> now is a function, since the content is dynamic.)</p>
+
+<p>I&#8217;ve achieved my goals: I can login and logout and I only see the links I&#8217;m allowed to click. I can run this code using the local dev_server and I can deploy it to the Google servers (see my <a href='http://compojureongae.posterous.com/deploying-to-app-engine'>previous post</a> on how to do this).</p>
+
+<p>But in the interactive development environment I set up in my <a href='http://compojureongae.posterous.com/getting-interactive-development-to-work-again'>last post</a>, nothing works! I&#8217;m always logged out and the login link is broken. Let&#8217;s fix that.</p>
+
+<h2 id='making_logins_work_in_interactive_development'>Making logins work in interactive development</h2>
+
+<p>The local implementation of the App Engine Users API calls an instance of <code>ApiProxy$Environment</code>, which I have to provide, to figure out if a user is logged in. In my last post, I set up a very minimal proxy, that always answers this question with &#8220;no&#8221;. Here&#8217;s the relevant snippet:</p>
+
+<p>http://gist.github.com/431611</p>
+
+<p>This needs to be smarter. I decided to store information about the current user globally in an atom. Of course, this implies that the server can only be used by one user at a time - for a production system this would be an incredibly stupid implementation, for local development I think it&#8217;s ok. Other options would be to store the login information in session variables or directly in a cookie. Storing it globally has the advantage, though, that I can easily view and modify the current login state from the REPL, which eases debugging (plus it&#8217;s simple to implement!).</p>
+
+<p>Here&#8217;s the definition of the atom holding the login information, prefilled with some reasonable default values:</p>
+
+<p>http://gist.github.com/431638</p>
+
+<p>The updated Environment proxy just reads from the atom:</p>
+
+<p>http://gist.github.com/431643</p>
+
+<p>I added two helper functions to easily modify the atom:</p>
+
+<p>http://gist.github.com/431645</p>
+
+<p>Now I can login and logout by calling the functions from the REPL and the pages served by my Jetty server immediately reflect this. But the login and logout links are still broken. I need to define handlers for these:</p>
+
+<p>http://gist.github.com/431653</p>
+
+<p>The <code>login-form</code> function just builds an exact copy of the login page provided by the Google dev_server.</p>
+
+<p>Last but not least, I have to update the <code>start-server</code> function to combine these handlers with my app (the change is in line 9):</p>
+
+<p>http://gist.github.com/431661</p>
+
+<p>That&#8217;s all - a functioning local implementation of the Users API complete with working login page. I hope you enjoy it!</p>
+
+<p>As always, the complete source code can be found on <a href='http://github.com/christianberg/compojureongae'>Github</a>, the version as of this writing is <a href='http://github.com/christianberg/compojureongae/tree/v0.3.0'>here</a>. You can see the deployed app <a href='http://v0-3.latest.compojureongae.appspot.com/'>here</a> (of course I&#8217;m the only admin user, so you might want to try it locally to see the full functionality&#8230;). Questions and suggestions are very welcome in the comments below!</p>
+    </div>
+    <script>
+      var idcomments_acct = '88e964cd0fd47375f375d24129dd2052';
+      var idcomments_post_id = '/2010/06/09/Using-the-App-Engine-Users-API-from-Clojure';
+      var idcomments_post_url = '/2010/06/09/Using-the-App-Engine-Users-API-from-Clojure.html';
+      var idcomments_post_title = 'Using the App Engine Users API from Clojure';
+    </script>
+    <span id="IDCommentsPostTitle" style="display:none"></span>
+    <script type='text/javascript' src='http://www.intensedebate.com/js/genericCommentWrapperV2.js'></script>
+  </div>
+  <div class="threecol last">
+    
+  </div>
+</div>
+
+      <div class="row">
+  <div class="twelvecol last">
+    <span class="footer">&copy; Christian Berg 2009-2011</span>
+  </div>
+</div>
+
+    </div>
+  </body>
+</html>
