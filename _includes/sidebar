@@ -1,0 +1,2 @@
+<a class="FlattrButton" style="display:none;"
+href="{{ site.url }}{{ page.url }}"></a>
