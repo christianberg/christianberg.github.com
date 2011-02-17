@@ -17,7 +17,7 @@ maruku:
 #
 # Site configuration
 #
-url:          http://christianberg.github.com/
+url:          http://christianberg.github.com
 title:        Compojure on GAE
 description:  Deploying a Clojure web app to Google App Engine
 keywords:     clojure, compojure, ring, app engine, gae
