@@ -1,5 +1,9 @@
 <div class="row">
-  <div class="twelvecol last">
+  <div class="twocol">
+    <a href="/"><img src="/images/logo.gif"/></a>
+  </div>
+  <div class="sevencol">
     <a href="/"><h1>{{ site.title }}</h1></a>
   </div>
+  <div class="threecol last"></div>
 </div>
