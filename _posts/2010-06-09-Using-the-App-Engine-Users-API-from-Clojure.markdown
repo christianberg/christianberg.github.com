@@ -1,6 +1,7 @@
 ---
 layout: post
 title: Using the App Engine Users API from Clojure
+category: compojureongae
 ---
 
 In my previous post about [Accessing the
