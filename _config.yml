@@ -2,7 +2,7 @@
 # Jekyll configuration
 #
 #destination: ./_site
-auto:        true
+auto:        false
 lsi:         false # better related posts
 server_port: 8080
 pygments:    true
