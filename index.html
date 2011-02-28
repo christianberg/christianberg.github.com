@@ -3,26 +3,18 @@ layout: default
 ---
 <div class="row">
   <div class="ninecol">
-    {% for post in site.posts %}
-    <div class="post">
-      <h2><a href="{{ post.url }}">{{ post.title }}</a></h2>
-      <div>
-      {{ post.date | date_to_string }}
-      </div>
-      <div>
-      {{ post.content | truncatewords  }}
-      </div>
-      <div>
-        <script>
-          var idcomments_acct = '88e964cd0fd47375f375d24129dd2052';
-          var idcomments_post_id = '{{ post.id }}';
-          var idcomments_post_url = '{{ post.url }}';
-          var idcomments_post_title = '{{ post.title }}';
-        </script>
-        <script type="text/javascript" src="http://www.intensedebate.com/js/genericLinkWrapperV2.js"></script>
-      </div>
-    </div>
-    {% endfor %}
+    <p>These posts were previously posted
+    at <a href="http://compojureongae.posterous.com/">compojureongae.posterous.com</a>. I'm
+    currently in the process of moving them here, so they are not
+    complete and some links point back to the old site.</p>
+    <ul class="posts">
+      {% for post in site.posts %}
+      <li>
+        <span class="date">{{ post.date | date_to_string }}</span> &raquo;
+        <a href="{{ post.url }}">{{ post.title }}</a>
+      </li>
+      {% endfor %}
+    </ul>
   </div>
   <div class="threecol last"></div>
 </div>

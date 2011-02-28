@@ -4,6 +4,16 @@ body {
 
 }
 
+.date {
+    color: #aaa;
+    font-family: Monaco, "Courier New", monospace;
+    font-size: 80%;
+}
+
+.subtitle {
+    color: #aaa;
+}
+
 
 /* Layout for mobile version */
 
