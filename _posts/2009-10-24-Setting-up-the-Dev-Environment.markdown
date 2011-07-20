@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Compojure on GAE - What's this about?
+title: Setting up the Dev Environment
 category: compojureongae
 ---
 
