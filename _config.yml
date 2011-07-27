@@ -2,10 +2,10 @@
 #      Main Configs       #
 # ----------------------- #
 
-url: http://yoursite.com
-title: My Octopress Blog
-subtitle: A blogging framework for hackers.
-author: Your Name
+url: http://christianberg.github.com
+title: Compojure on GAE
+subtitle: Deploying a Clojure web app on Google App Engine
+author: Christian Berg
 simple_search: http://google.com/search
 
 # RSS / Email (optional) subscription links (change if using something like Feedburner)
@@ -22,6 +22,7 @@ email:
 root: /
 port: 4000
 permalink: /blog/:year/:month/:day/:title
+#permalink: pretty
 source: source
 destination: public
 plugins: plugins
@@ -38,7 +39,7 @@ recent_posts: 5 # Posts in the sidebar Recent Posts section
 # ----------------------- #
 
 # Twitter
-twitter_user:
+twitter_user: 
 twitter_tweet_count: 4
 twitter_show_replies: false
 twitter_follow_button: true
@@ -58,7 +59,7 @@ delicious_user:
 delicious_count: 3
 
 # Disqus Comments
-disqus_short_name:
+disqus_short_name: compojureongae
 
 # Google Analytics
-google_analytics_tracking_id:
+google_analytics_tracking_id: UA-21431349-1
