@@ -61,7 +61,7 @@ task :new_post, :title do |t, args|
   require './plugins/titlecase.rb'
   args.with_defaults(:title => 'new-post')
   title = args.title
-  filename = "#{source_dir}/#{posts_dir}/#{Time.now.strftime('%Y-%m-%d')}-#{title.downcase.gsub(/&/,'and').gsub(/[,\.'":\(\)\[\]]/,'').gsub(/\W/, '-')}.#{new_post_ext}"
+  filename = "#{source_dir}/#{posts_dir}/#{Time.now.strftime('%Y-%m-%d')}-#{title.downcase.gsub(/&/,'and').gsub(/[,'":\?!\(\)\[\]]/,'').gsub(/[\W\.]/, '-').gsub(/-+$/,'')}.#{new_post_ext}"
   puts "Creating new post: #{filename}"
   open(filename, 'w') do |post|
     system "mkdir -p #{source_dir}/#{posts_dir}";
@@ -76,7 +76,7 @@ task :new_post, :title do |t, args|
 end
 
 # usage rake new_page[my-new-page] or rake new_page[my-new-page.html] or rake new_page (defaults to "new-page.markdown")
-desc "Begin a new post in #{source_dir}/#{posts_dir}"
+desc "Create a new page in #{source_dir}/(filename)/index.#{new_page_ext}"
 task :new_page, :filename do |t, args|
   require './plugins/titlecase.rb'
   args.with_defaults(:filename => 'new-page')
@@ -127,6 +127,10 @@ end
 desc "Move sass to sass.old, install sass theme updates, replace sass/custom with sass.old/custom"
 task :update_style, :theme do |t, args|
   theme = args.theme || 'classic'
+  if File.directory?("sass.old")
+    puts "removed existing sass.old directory"
+    system "rm -r sass.old"
+  end
   system "mv sass sass.old"
   puts "## Moved styles into sass.old/"
   system "mkdir -p sass; cp -R #{themes_dir}/"+theme+"/sass/ sass/"
@@ -137,11 +141,16 @@ end
 desc "Move source to source.old, install source theme updates, replace source/_includes/navigation.html with source.old's navigation"
 task :update_source, :theme do |t, args|
   theme = args.theme || 'classic'
+  if File.directory?("#{source_dir}.old")
+    puts "removed existing #{source_dir}.old directory"
+    system "rm -r #{source_dir}.old"
+  end
   system "mv #{source_dir} #{source_dir}.old"
   puts "moved #{source_dir} into #{source_dir}.old/"
   system "mkdir -p #{source_dir}; cp -R #{themes_dir}/"+theme+"/source/. #{source_dir}"
   system "cp -Rn #{source_dir}.old/. #{source_dir}"
   system "cp -f #{source_dir}.old/_includes/navigation.html #{source_dir}/_includes/navigation.html"
+  system "cp -f #{source_dir}.old/_includes/footer.html #{source_dir}/_includes/footer.html"
   puts "## Updated #{source_dir} ##"
 end
 
@@ -163,7 +172,7 @@ desc "deploy public directory to github pages"
 task :push do
   puts "## Deploying branch to Github Pages "
   (Dir["#{deploy_dir}/*"]).each { |f| rm_rf(f) }
-  system "cp -R #{public_dir}/ #{deploy_dir}"
+  system "cp -R #{public_dir}/* #{deploy_dir}"
   puts "\n## copying #{public_dir} to #{deploy_dir}"
   cd "#{deploy_dir}" do
     system "git add ."

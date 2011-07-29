@@ -20,11 +20,13 @@
 # will output a figcaption with the title: Example 2 (test.js)
 #
 
+require './plugins/pygments_code'
 require 'pathname'
 
 module Jekyll
 
   class IncludeCodeTag < Liquid::Tag
+    include HighlightCode
     def initialize(tag_name, markup, tokens)
       @title = nil
       @file = nil
@@ -36,7 +38,7 @@ module Jekyll
     end
 
     def render(context)
-      code_dir = (context.registers[:site].config['code_dir'] || 'downloads/code')
+      code_dir = (context.registers[:site].config['code_dir'].sub(/^\//,'') || 'downloads/code')
       code_path = (Pathname.new(context.registers[:site].source) + code_dir).expand_path
       file = code_path + @file
 
@@ -50,11 +52,13 @@ module Jekyll
 
       Dir.chdir(code_path) do
         code = file.read
-        file_type = file.extname
+        @filetype = file.extname.sub('.','')
+        @filetype = 'objc' if @filetype == 'm'
+        @filetype = 'perl' if @filetype == 'pl'
         title = @title ? "#{@title} (#{file.basename})" : file.basename
         url = "#{context.registers[:site].config['url']}/#{code_dir}/#{@file}"
         source = "<div><figure role=code><figcaption><span>#{title}</span> <a href='#{url}'>download</a></figcaption>\n"
-        source += "{% highlight #{file_type} %}\n" + code + "\n{% endhighlight %}</figure></div>"
+        source += " #{highlight(code, @filetype)}</figure></div>"
         partial = Liquid::Template.parse(source)
         context.stack do
           partial.render(context)
