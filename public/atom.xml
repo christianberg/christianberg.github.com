@@ -1,0 +1,1077 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title></title>
+  <link href="http://christianberg.github.com/atom.xml" rel="self"/>
+  <link href="http://christianberg.github.com/"/>
+  <updated>2011-07-29T22:23:52+02:00</updated>
+  <id>http://christianberg.github.com/</id>
+  <author>
+    <name>Christian Berg</name>
+    
+  </author>
+
+  
+  <entry>
+    <title>Using the App Engine Users API from Clojure</title>
+    <link href="http://christianberg.github.com/blog/2010/06/09/using-the-app-engine-users-api"/>
+    <updated>2010-06-09T00:00:00+02:00</updated>
+    <id>http://christianberg.github.com/blog/2010/06/09/using-the-app-engine-users-api</id>
+    <content type="html">&lt;p&gt;In my previous post about &lt;a href=&quot;/blog/2010/06/01/accessing-the-app-engine-datastore&quot;&gt;Accessing the Datastore&lt;/a&gt; I set up basic
+security using a &lt;code&gt;security-constraint&lt;/code&gt; element in the deployment
+descriptor (&lt;code&gt;web.xml&lt;/code&gt;). This was simple, as the app didn't have to be
+aware of security concerns at all. The downside is that the app
+doesn't know if the user is logged in and can't react to that. For
+example, the &quot;Create new post&quot; link is shown to all users, only after
+clicking it (and logging in) they get an ugly error message about
+missing privileges. This is bad usability, so let's use the App Engine
+Users API and move the authentication and authorization into the app.&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+
+&lt;h2&gt;Setting up the routes&lt;/h2&gt;
+
+&lt;p&gt;To make things easier, I changed my route definitions, separating the
+public routes from those that need admin privileges. All admin route
+URLs now start with &lt;code&gt;/admin&lt;/code&gt;:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/431270.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defroutes public-routes
+  (GET &amp;quot;/&amp;quot; [] (main-page)))
+
+(defroutes admin-routes
+  (GET  &amp;quot;/admin/new&amp;quot;  [] (render-page &amp;quot;New Post&amp;quot; new-form))
+  (POST &amp;quot;/admin/post&amp;quot; [title body] (create-post title body)))&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The admin-routes are only allowed to be accessed by logged-in users
+with admin privileges.  &lt;a href=&quot;http://github.com/r0man/appengine-clj&quot;&gt;appengine-clj&lt;/a&gt; already comes with two
+middleware functions that help with this: &lt;code&gt;wrap-with-user-info&lt;/code&gt; adds
+references to the UserService and (if a user is logged in) User
+objects from the App Engine API to each
+request. &lt;code&gt;wrap-requiring-login&lt;/code&gt; checks that the user is logged in
+before passing the request on to the wrapped handler - if not, the
+user is redirected to the login page.&lt;/p&gt;
+
+&lt;p&gt;There's no &lt;code&gt;wrap-requiring-admin&lt;/code&gt; (yet), so I quickly wrote it myself:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/431336.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defn wrap-requiring-admin [application]
+  (fn [request]
+    (let [{:keys [user-service]} (users/user-info request)]
+      (if (.isUserAdmin user-service)
+        (application request)
+        {:status 403 :body &amp;quot;Access denied. You must be logged in as admin user!&amp;quot;}))))
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;code&gt;wrap-requiring-admin&lt;/code&gt; depends on &lt;code&gt;wrap-requiring-login&lt;/code&gt;, which in
+turn depends on &lt;code&gt;wrap-with-user-info&lt;/code&gt;, so I have to decorate my
+&lt;code&gt;admin-routes&lt;/code&gt; handler with all three:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/431338.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(wrap! admin-routes
+       wrap-requiring-admin
+       users/wrap-requiring-login
+       users/wrap-with-user-info)
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Finally, the routes are combined into my main handler:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/431343.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defroutes example
+  public-routes
+  (ANY &amp;quot;/admin/*&amp;quot; [] admin-routes)
+  (route/not-found &amp;quot;Page not found&amp;quot;))
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Why can't I just put &lt;code&gt;admin-routes&lt;/code&gt; in there, just like
+&lt;code&gt;public-routes&lt;/code&gt;? The problem is, that the middleware I wrapped around
+&lt;code&gt;admin-routes&lt;/code&gt; jumps in before the route-matching. So even if
+&lt;code&gt;admin-routes&lt;/code&gt; can't match the request URL and passes on control to
+the next handler, it first makes sure that the user is logged in as an
+admin. In this case, the &lt;code&gt;not-found&lt;/code&gt; handler (which always has to be
+last) could only be reached by admins, all other users would have to
+login and then get a 403 error when they enter a non-existing URL.
+Therefor, I have to make sure that the &lt;code&gt;admin-routes&lt;/code&gt; handler is only
+called for URLs starting with /admin.&lt;/p&gt;
+
+&lt;h2&gt;Checking the users login status&lt;/h2&gt;
+
+&lt;p&gt;So far, the new code does the same thing the old configuration did, I
+haven't won anything. So let's make the site a little more dynamic and
+change the output depending on the users login status. I changed the
+sidebar to display information about the current user and login/logout
+links. Also, the &quot;Create new post&quot; link is only shown for logged-in
+admin users:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/431458.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defn side-bar []
+  (let [ui (users/user-info)]
+    [:div#sidebar
+     [:h3 &amp;quot;Current User&amp;quot;]
+     (if-let [user (:user ui)]
+       [:ul
+        [:li &amp;quot;Logged in as &amp;quot; (.getEmail user)]
+        [:li (link-to (.createLogoutURL (:user-service ui) &amp;quot;/&amp;quot;) &amp;quot;Logout&amp;quot;)]]
+       [:ul
+        [:li &amp;quot;Not logged in&amp;quot;]
+        [:li (link-to (.createLoginURL (:user-service ui) &amp;quot;/&amp;quot;) &amp;quot;Login&amp;quot;)]]
+       )
+     [:h3 &amp;quot;Navigation&amp;quot;]
+     [:ul
+      [:li (link-to &amp;quot;/&amp;quot; &amp;quot;Main page&amp;quot;)]
+      (if (and (:user ui) (.isUserAdmin (:user-service ui)))
+        [:li (link-to &amp;quot;/admin/new&amp;quot; &amp;quot;Create new post (Admin only)&amp;quot;)])]
+     [:h3 &amp;quot;External Links&amp;quot;]
+     [:ul
+      [:li (link-to &amp;quot;http://compojureongae.posterous.com/&amp;quot; &amp;quot;Blog&amp;quot;)]
+      [:li (link-to &amp;quot;http://github.com/christianberg/compojureongae&amp;quot; &amp;quot;Source Code&amp;quot;)]]]))
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;(Note that &lt;code&gt;side-bar&lt;/code&gt; now is a function, since the content is dynamic.)&lt;/p&gt;
+
+&lt;p&gt;I've achieved my goals: I can login and logout and I only see the
+links I'm allowed to click. I can run this code using the local
+dev_server and I can deploy it to the Google servers (see my
+&lt;a href=&quot;/blog/2010/05/11/deploying-to-app-engine&quot;&gt;previous post&lt;/a&gt; on how to do this).&lt;/p&gt;
+
+&lt;p&gt;But in the interactive development environment I set up in my
+&lt;a href=&quot;/blog/2010/06/04/getting-interactive-development-to-work-again&quot;&gt;last post&lt;/a&gt;, nothing works! I'm always logged out and the login
+link is broken.  Let's fix that.&lt;/p&gt;
+
+&lt;h2&gt;Making logins work in interactive development&lt;/h2&gt;
+
+&lt;p&gt;The local implementation of the App Engine Users API calls an instance
+of &lt;code&gt;ApiProxy$Environment&lt;/code&gt;, which I have to provide, to figure out if a
+user is logged in. In my last post, I set up a very minimal proxy,
+that always answers this question with &quot;no&quot;. Here's the relevant
+snippet:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/431611.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;        env-proxy (proxy [ApiProxy$Environment] []
+                    (isLoggedIn [] false)
+                    (getRequestNamespace [] &amp;quot;&amp;quot;)
+                    (getDefaultNamespace [] &amp;quot;&amp;quot;)
+                    (getAttributes [] att)
+                    (getAppId [] &amp;quot;_local_&amp;quot;))&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This needs to be smarter. I decided to store information about the
+current user globally in an atom. Of course, this implies that the
+server can only be used by one user at a time - for a production
+system this would be an incredibly stupid implementation, for local
+development I think it's ok. Other options would be to store the login
+information in session variables or directly in a cookie. Storing it
+globally has the advantage, though,  that I can easily view and modify
+the current login state from the REPL, which eases debugging (plus
+it's simple to implement!).&lt;/p&gt;
+
+&lt;p&gt;Here's the definition of the atom holding the login information,
+prefilled with some reasonable default values:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/431638.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(def login-info (atom {:logged-in? false
+                       :admin? false
+                       :email &amp;quot;&amp;quot;
+                       :auth-domain &amp;quot;&amp;quot;}))
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The updated Environment proxy just reads from the atom:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/431643.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defn- set-app-engine-environment []
+  &amp;quot;Sets up the App Engine environment for the current thread.&amp;quot;
+  (let [att (HashMap. {&amp;quot;com.google.appengine.server_url_key&amp;quot;
+                       (str &amp;quot;http://localhost:&amp;quot; *port*)})
+        env-proxy (proxy [ApiProxy$Environment] []
+                    (isLoggedIn [] (:logged-in? @login-info))
+                    (getEmail [] (:email @login-info))
+                    (getAuthDomain [] (:auth-domain @login-info))
+                    (isAdmin [] (:admin? @login-info))
+                    (getRequestNamespace [] &amp;quot;&amp;quot;)
+                    (getDefaultNamespace [] &amp;quot;&amp;quot;)
+                    (getAttributes [] att)
+                    (getAppId [] &amp;quot;_local_&amp;quot;))]
+    (ApiProxy/setEnvironmentForCurrentThread env-proxy)))
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;I added two helper functions to easily modify the atom:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/431645.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defn login
+  ([email] (login email false))
+  ([email admin?] (swap! login-info merge {:email email
+                                           :logged-in? true
+                                           :admin? admin?})))
+
+(defn logout []
+  (swap! login-info merge {:email &amp;quot;&amp;quot;
+                           :logged-in? false
+                           :admin? false}))&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now I can login and logout by calling the functions from the REPL and
+the pages served by my Jetty server immediately reflect this. But the
+login and logout links are still broken. I need to define handlers for
+these:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/431653.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defroutes login-routes
+  (GET &amp;quot;/_ah/login&amp;quot; [continue] (login-form continue))
+  (POST &amp;quot;/_ah/login&amp;quot; [action email isAdmin continue] (do (if (= action &amp;quot;Log In&amp;quot;)
+                                                           (login email (boolean isAdmin))
+                                                           (logout))
+                                                         (redirect continue)))
+  (GET &amp;quot;/_ah/logout&amp;quot; [continue] (do (logout)
+                                    (redirect continue))))&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The &lt;code&gt;login-form&lt;/code&gt; function just builds an exact copy of the login page
+provided by the Google dev_server.&lt;/p&gt;
+
+&lt;p&gt;Last but not least, I have to update the &lt;code&gt;start-server&lt;/code&gt; function to
+combine these handlers with my app (the change is in line 9):&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/431661.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defn start-server [app]
+  &amp;quot;Initializes the App Engine services and (re-)starts a Jetty server
+   running the supplied ring app, wrapping it to enable App Engine API use
+   and serving of static files.&amp;quot;
+  (set-app-engine-delegate &amp;quot;/tmp&amp;quot;)
+  (swap! *server* (fn [instance]
+                   (when instance
+                     (.stop instance))
+                   (let [app (-&amp;gt; (routes login-routes app)
+                                 (wrap-local-app-engine)
+                                 (wrap-file &amp;quot;./war&amp;quot;)
+                                 (wrap-file-info))]
+                     (run-jetty app {:port *port*
+                                     :join? false})))))&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;That's all - a functioning local implementation of the Users API
+complete with working login page. I hope you enjoy it!&lt;/p&gt;
+
+&lt;p&gt;As always, the complete source code can be found on &lt;a href=&quot;http://github.com/christianberg/compojureongae&quot;&gt;Github&lt;/a&gt;, the
+version as of this writing is &lt;a href=&quot;http://github.com/christianberg/compojureongae/tree/v0.3.0&quot;&gt;here&lt;/a&gt;.  You can see the deployed app
+&lt;a href=&quot;http://v0-3.latest.compojureongae.appspot.com/&quot;&gt;here&lt;/a&gt; (of course I'm the only admin user, so you might want to try
+it locally to see the full functionality...). Questions and
+suggestions are very welcome in the comments below!&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>Getting Interactive Development to Work (Again)</title>
+    <link href="http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again"/>
+    <updated>2010-06-04T00:00:00+02:00</updated>
+    <id>http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again</id>
+    <content type="html">&lt;p&gt;In my &lt;a href=&quot;/blog/2010/06/01/accessing-the-app-engine-datastore&quot;&gt;last post&lt;/a&gt; I promised to fix my local development setup to
+enable the interactive development style typical for Clojure and make
+the App Engine services (such as the datastore) available from the
+REPL.&lt;/p&gt;
+
+&lt;p&gt;Others have already tackled the same problem. The best resource I
+found is the &lt;a href=&quot;http://www.hackers-with-attitude.com/2010/04/clojure-google-app-engine-setup-update.html&quot;&gt;hackers with attitude blog&lt;/a&gt;, another one is
+&lt;a href=&quot;http://carpathia.blogspot.com/2010/05/yet-another-clojure-compojure-google.html&quot;&gt;here&lt;/a&gt;.  My code is largely based on these contributions, I rolled
+my own version mainly to get a better understanding of the setup.&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+
+&lt;h2&gt;Initializing the App Engine services&lt;/h2&gt;
+
+&lt;p&gt;To use the App Engine APIs outside of the Google servers, a local
+ApiProxy and Environment needs to be provided. While the ApiProxy
+needs to be initialized only once per JVM, the Environment needs to be
+set for every thread on which API calls are made. This is trivial for
+the REPL, which runs in one thread. It's a bit more work when you want
+to run a local Jetty server, since it spawns new threads for handling
+requests. Fortunately, the design of Ring makes it easy to add
+so-called middleware to an existing web app that can handle the
+environment setup.&lt;/p&gt;
+
+&lt;p&gt;Enough said, here's the code. I'll go through it def by def below.&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/425238.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(ns local-dev
+  &amp;quot;Tools for local development.
+   Enables the use of the App Engine APIs on the REPL and in a local Jetty instance.&amp;quot;
+  (:use ring.adapter.jetty
+        [ring.middleware file file-info])
+  (:import [java.io File]
+           [java.util HashMap]
+           [com.google.apphosting.api ApiProxy ApiProxy$Environment]
+           [com.google.appengine.tools.development
+            ApiProxyLocalFactory
+            LocalServerEnvironment]))
+
+(defonce *server* (atom nil))
+(def *port* 8181)
+
+(defn- set-app-engine-environment []
+  &amp;quot;Sets up the App Engine environment for the current thread.&amp;quot;
+  (let [att (HashMap. {&amp;quot;com.google.appengine.server_url_key&amp;quot;
+                       (str &amp;quot;http://localhost:&amp;quot; *port*)})
+        env-proxy (proxy [ApiProxy$Environment] []
+                    (isLoggedIn [] false)
+                    (getRequestNamespace [] &amp;quot;&amp;quot;)
+                    (getDefaultNamespace [] &amp;quot;&amp;quot;)
+                    (getAttributes [] att)
+                    (getAppId [] &amp;quot;_local_&amp;quot;))]
+    (ApiProxy/setEnvironmentForCurrentThread env-proxy)))
+
+(defn- set-app-engine-delegate [dir]
+  &amp;quot;Initializes the App Engine services. Needs to be run (at least) per JVM.&amp;quot;
+  (let [local-env (proxy [LocalServerEnvironment] []
+                    (getAppDir [] (File. dir))
+                    (getAddress [] &amp;quot;localhost&amp;quot;)
+                    (getPort [] *port*)
+                    (waitForServerToStart [] nil))
+        api-proxy (.create (ApiProxyLocalFactory.)
+                           local-env)]
+    (ApiProxy/setDelegate api-proxy)))
+
+(defn init-app-engine
+  &amp;quot;Initializes the App Engine services and sets up the environment. To be called from the REPL.&amp;quot;
+  ([] (init-app-engine &amp;quot;/tmp&amp;quot;))
+  ([dir]
+     (set-app-engine-delegate dir)
+     (set-app-engine-environment)))
+
+(defn wrap-local-app-engine [app]
+  &amp;quot;Wraps a ring app to enable the use of App Engine Services.&amp;quot;
+  (fn [req]
+    (set-app-engine-environment)
+    (app req)))
+
+(defn start-server [app]
+  &amp;quot;Initializes the App Engine services and (re-)starts a Jetty server
+   running the supplied ring app, wrapping it to enable App Engine API use
+   and serving of static files.&amp;quot;
+  (set-app-engine-delegate &amp;quot;/tmp&amp;quot;)
+  (swap! *server* (fn [instance]
+                   (when instance
+                     (.stop instance))
+                   (let [app (-&amp;gt; app
+                                 (wrap-local-app-engine)
+                                 (wrap-file &amp;quot;./war&amp;quot;)
+                                 (wrap-file-info))]
+                     (run-jetty app {:port *port*
+                                     :join? false})))))
+
+(defn stop-server []
+  &amp;quot;Stops the local Jetty server.&amp;quot;
+  (swap! *server* #(when % (.stop %))))
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The code is in a separate namespace, so it doesn't get AOT-compiled
+and deployed with the rest of the app. I'm using an atom to store the
+Jetty server instance. Using &lt;code&gt;defonce&lt;/code&gt; was helpful while developing
+this, because I could recompile the file (&lt;code&gt;C-c C-k&lt;/code&gt; in Emacs) without
+losing the reference to the running Jetty server.&lt;/p&gt;
+
+&lt;p&gt;The two functions &lt;code&gt;set-app-engine-environment&lt;/code&gt; and
+&lt;code&gt;set-app-engine-delegate&lt;/code&gt; do the necessary setup work on the
+per-thread and per-jvm basis, respectively.&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;init-app-engine&lt;/code&gt; just calls these two functions. It's intended to be
+called from the REPL, after which you're able to use API calls like
+&lt;code&gt;create-entity&lt;/code&gt; in the REPL.&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;wrap-local-app-engine&lt;/code&gt; is a Ring middleware that sets the environment
+for the current thread before passing the request on to the wrapped
+Ring (or Compojure) app.&lt;/p&gt;
+
+&lt;p&gt;The &lt;code&gt;start-server&lt;/code&gt; function takes a Ring app, does the per-JVM setup,
+wraps the app with the middleware for the per-thread setup and starts
+a Jetty server running the app. If there already is a Jetty server
+stored in the atom, it is stopped first, so you can use the function
+to restart the Jetty as well. The &lt;code&gt;:join? false&lt;/code&gt; argument is
+important, otherwise the call to &lt;code&gt;run-jetty&lt;/code&gt; will not return.&lt;/p&gt;
+
+&lt;p&gt;I also added the &lt;code&gt;wrap-file&lt;/code&gt; middleware to serve static files (and
+&lt;code&gt;wrap-file-info&lt;/code&gt; to add Content-Type and Content-Length headers). This
+mimics the behaviour of the Google servers, which by default serve all
+files included in the war directory. (Note that, unlike the Google
+servers, this setup also serves the files in the WEB-INF directory. In
+a production system that would be a security concern, for local
+development I don't mind.)&lt;/p&gt;
+
+&lt;p&gt;Last (and also least interesting), the &lt;code&gt;stop-server&lt;/code&gt; function stops
+the Jetty server (and sets the atom back to nil).&lt;/p&gt;
+
+&lt;h2&gt;Setting up the classpath&lt;/h2&gt;
+
+&lt;p&gt;To use the local API implementations we need some additional jars on
+the classpath. Here's the updated project.clj:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/425239.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defproject compojureongae &amp;quot;0.2.0&amp;quot;
+  :description &amp;quot;Example app for deployoing Compojure on Google App Engine&amp;quot;
+  :namespaces [compojureongae.core]
+  :dependencies [[compojure &amp;quot;0.4.0-RC3&amp;quot;]
+                 [ring/ring-servlet &amp;quot;0.2.1&amp;quot;]
+                 [hiccup &amp;quot;0.2.4&amp;quot;]
+                 [appengine &amp;quot;0.2&amp;quot;]
+                 [com.google.appengine/appengine-api-1.0-sdk &amp;quot;1.3.4&amp;quot;]
+                 [com.google.appengine/appengine-api-labs &amp;quot;1.3.4&amp;quot;]]
+  :dev-dependencies [[swank-clojure &amp;quot;1.2.0&amp;quot;]
+                     [ring/ring-jetty-adapter &amp;quot;0.2.0&amp;quot;]
+                     [com.google.appengine/appengine-local-runtime &amp;quot;1.3.4&amp;quot;]
+                     [com.google.appengine/appengine-api-stubs &amp;quot;1.3.4&amp;quot;]]
+  :compile-path &amp;quot;war/WEB-INF/classes&amp;quot;
+  :library-path &amp;quot;war/WEB-INF/lib&amp;quot;)&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The new dependencies go into &lt;code&gt;dev-dependencies&lt;/code&gt;, since they mustn't be
+deployed with the app. However, in the current development version of
+Leiningen 1.2 (which separates dependencies and dev-dependencies into
+different directories), the dev-dependencies are apparently only
+intended for Leiningen plugins such as swank-clojure - they are not
+put on the classpath for the REPL. I had to patch Leiningen to make
+this work. Here's the diff:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/425246.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;diff --git a/src/leiningen/classpath.clj b/src/leiningen/classpath.clj
+index 3be7e1f..836740e 100644
+--- a/src/leiningen/classpath.clj
++++ b/src/leiningen/classpath.clj
+@@ -8,7 +8,9 @@
+   &amp;quot;Returns a seq of Files for all the jars in the project's library directory.&amp;quot;
+   [project]
+   (filter #(.endsWith (.getName %) &amp;quot;.jar&amp;quot;)
+-          (file-seq (file (:library-path project)))))
++          (concat
++           (file-seq (file (:library-path project)))
++           (file-seq (file (str (:root project) &amp;quot;/lib/dev&amp;quot;))))))
+ 
+ (defn make-path
+   &amp;quot;Constructs an ant Path object from Files and strings.&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;I'll try to get this (or something similar) into Leiningen. &lt;strong&gt;Update:
+I wasn't the only one with this problem. It was recently patched in
+Leiningen.&lt;/strong&gt; Stable Leiningen (1.1) will probably work out of the box
+- I haven't tried.&lt;/p&gt;
+
+&lt;p&gt;Running &lt;code&gt;lein deps&lt;/code&gt; installs the new dependencies. As I said in my
+last post, you'll likely have to manually install the jars from the
+App Engine SDK into your local Maven repository. Here's an example
+command for one of the jars:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/425284.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;mvn install:install-file -DgroupId=com.google.appengine \
+-DartifactId=appengine-api-labs -Dversion=1.3.4 -Dpackaging=jar \
+-Dfile=$GAESDK/lib/user/appengine-api-labs-1.3.4.jar&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;Putting it to use&lt;/h2&gt;
+
+&lt;p&gt;Run &lt;code&gt;lein swank&lt;/code&gt;, enter &lt;code&gt;M-x slime-connect&lt;/code&gt; in Emacs to connect to the
+REPL and code away as usual. To call functions that make use of the
+App Engine API, enter this in the REPL:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;&amp;#39;local-dev&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;local-dev/init-app-engine&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+
+&lt;p&gt;To start a Jetty server, just enter:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;local-dev/start-server&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;var&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;example&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+
+&lt;p&gt;&lt;code&gt;example&lt;/code&gt; is the name of the Compojure app defined by &lt;code&gt;defroutes&lt;/code&gt; in
+core.clj.  &lt;strong&gt;Update: Using &lt;code&gt;var&lt;/code&gt; here allows you to change the
+definition of &lt;code&gt;example&lt;/code&gt; itself without having to restart the server.&lt;/strong&gt;&lt;/p&gt;
+
+&lt;h2&gt;What's next?&lt;/h2&gt;
+
+&lt;p&gt;The next thing I'm working on is using the Users API for
+authentication and authorization (instead of the simple
+security-constraint method described in my &lt;a href=&quot;/blog/2010/06/01/accessing-the-app-engine-datastore&quot;&gt;last post&lt;/a&gt;).  I'll need
+to make some changes to this local-dev code in order to properly test
+that locally. So stay tuned...&lt;/p&gt;
+
+&lt;p&gt;As always, questions and suggestions are very welcome in the comments
+section below!&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>Accessing the App Engine Datastore</title>
+    <link href="http://christianberg.github.com/blog/2010/06/01/accessing-the-app-engine-datastore"/>
+    <updated>2010-06-01T00:00:00+02:00</updated>
+    <id>http://christianberg.github.com/blog/2010/06/01/accessing-the-app-engine-datastore</id>
+    <content type="html">&lt;p&gt;In my &lt;a href=&quot;/blog/2010/05/11/deploying-to-app-engine&quot;&gt;last post&lt;/a&gt;, I managed to deploy a Compojure app to Google
+App Engine. Serving static content isn't very exciting, though. Pretty
+much every app will need some way to store and retrieve data. So let's
+try to access the App Engine Datastore.&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+
+&lt;h2&gt;New Dependencies&lt;/h2&gt;
+
+&lt;p&gt;To use the datastore API I need to include a jar that comes with the
+GAE SDK in my app. I could call the Java API directly, but there are
+already a few Clojure libraries that provide friendly wrappers around
+it. One of the first (that I know of) was &lt;a href=&quot;http://github.com/duelinmarkers/appengine-clj&quot;&gt;appengine-clj&lt;/a&gt; by John
+Hume (who was also one of the first to
+&lt;a href=&quot;http://elhumidor.blogspot.com/2009/04/clojure-on-google-appengine.html&quot;&gt;write about using Clojure on GAE&lt;/a&gt;).&lt;/p&gt;
+
+&lt;p&gt;I decided to go with &lt;a href=&quot;http://github.com/r0man/appengine-clj&quot;&gt;this fork&lt;/a&gt; of appengine-clj by Roman Scherer,
+which seems to be more complete and actively maintained.  Another
+interesting option would be &lt;a href=&quot;http://github.com/smartrevolution/clj-gae-datastore&quot;&gt;clj-gae-datastore&lt;/a&gt; by the people at
+freiheit.com.&lt;/p&gt;
+
+&lt;p&gt;I updated my project.clj file with the new dependencies:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/419744.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defproject compojureongae &amp;quot;0.2.0&amp;quot;
+  :description &amp;quot;Example app for deployoing Compojure on Google App Engine&amp;quot;
+  :namespaces [compojureongae.core]
+  :dependencies [[compojure &amp;quot;0.4.0-RC3&amp;quot;]
+                 [ring/ring-servlet &amp;quot;0.2.1&amp;quot;]
+                 [hiccup &amp;quot;0.2.4&amp;quot;]
+                 [appengine &amp;quot;0.2&amp;quot;]
+                 [com.google.appengine/appengine-api-1.0-sdk &amp;quot;1.3.4&amp;quot;]]
+  :dev-dependencies [[swank-clojure &amp;quot;1.2.0&amp;quot;]]
+  :compile-path &amp;quot;war/WEB-INF/classes&amp;quot;
+  :library-path &amp;quot;war/WEB-INF/lib&amp;quot;)&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;I'm using &lt;a href=&quot;http://github.com/weavejester/hiccup&quot;&gt;Hiccup&lt;/a&gt; (formerly part of Compojure) for HTML
+generation. Running &lt;code&gt;lein deps&lt;/code&gt; runs into an error, because it can't
+find the Google SDK jar in the public repositories. Luckily, Leiningen
+(or Maven) already tells me how to fix this by installing the jar from
+the SDK download into my local Maven repository - I just have to copy
+and paste the command from the error message and enter the path to the
+local jar. After that, &lt;code&gt;lein deps&lt;/code&gt; executes cleanly and copies the new
+dependencies into my lib dir.&lt;/p&gt;
+
+&lt;p&gt;Along with updating the dependencies in project.clj I have to import
+the needed symbols into my namespace:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/419856.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(ns compojureongae.core
+  (:gen-class :extends javax.servlet.http.HttpServlet)
+  (:use compojure.core
+        [ring.util.servlet   :only [defservice]]
+        [ring.util.response  :only [redirect]]
+        [hiccup.core         :only [h html]]
+        [hiccup.page-helpers :only [doctype include-css link-to xhtml-tag]]
+        [hiccup.form-helpers :only [form-to text-area text-field]])
+  (:import (com.google.appengine.api.datastore Query))
+  (:require [compojure.route          :as route]
+            [appengine.datastore.core :as ds]))
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The choice of using &lt;code&gt;:use&lt;/code&gt; or &lt;code&gt;:require&lt;/code&gt; is pretty arbitrary in this
+case - I just used both to demonstrate the different options. With
+&lt;code&gt;:require&lt;/code&gt; I need to call the functions using the full namespace
+(using a short alias), with &lt;code&gt;:use&lt;/code&gt; they are imported into my
+namespace. For the latter case, I explicitly named all the definitions
+I need using &lt;code&gt;:only&lt;/code&gt;. This is pretty verbose and not strictly
+necessary, but for a little howto like this I want you to immediately
+see where every function comes from, so you don't have to rummage
+through all the libraries (although the &lt;code&gt;doc&lt;/code&gt; function makes this
+easy...). I guess it generally is a good idea to not clutter your
+namespace with definitions you don't need.&lt;/p&gt;
+
+&lt;h2&gt;Storing Data&lt;/h2&gt;
+
+&lt;p&gt;Now comes the more interesting part: Actually accessing the datastore.
+I want to be able to create simple blog posts, consisting of a title
+and a body. I need two new routes, one for displaying a form, and one
+that is used as the action URL for the form:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/419875.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defroutes example
+  (GET &amp;quot;/&amp;quot; [] (main-page))
+  (GET &amp;quot;/new&amp;quot; [] (render-page &amp;quot;New Post&amp;quot; new-form))
+  (POST &amp;quot;/post&amp;quot; [title body] (create-post title body))
+  (route/not-found &amp;quot;Page not found&amp;quot;))
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Here's the code that handles the form submission:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/419936.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defn create-post [title body]
+  &amp;quot;Stores a new post in the datastore and issues an HTTP Redirect to the main page.&amp;quot;
+  (ds/create-entity {:kind &amp;quot;post&amp;quot; :title title :body body})
+  (redirect &amp;quot;/&amp;quot;))
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Amazingly simple. The &lt;code&gt;create-entity&lt;/code&gt; function just takes a Clojure
+map, which needs to have a &lt;code&gt;:kind&lt;/code&gt; entry, and stores it in the
+datastore. After that I issue an HTTP redirect to the main page.&lt;/p&gt;
+
+&lt;h2&gt;Retrieving Data&lt;/h2&gt;
+
+&lt;p&gt;Retrieving data is just as simple. On the main page, I just display all posts:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/419939.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defn render-post [post]
+  &amp;quot;Renders a post to HTML.&amp;quot;
+  [:div
+   [:h2 (h (:title post))]
+   [:p (h (:body post))]])
+
+(defn get-posts []
+  &amp;quot;Returns all posts stored in the datastore.&amp;quot;
+  (ds/find-all (Query. &amp;quot;post&amp;quot;)))
+
+(defn main-page []
+  &amp;quot;Renders the main page by displaying all posts.&amp;quot;
+  (render-page &amp;quot;Compojure on GAE&amp;quot;
+    (map render-post (get-posts))))
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The &lt;code&gt;h&lt;/code&gt; function takes care of escaping special characters in the user
+input, so I don't run into any cross-site scripting
+trouble. &lt;code&gt;render-page&lt;/code&gt; is a little helper function that takes care of
+constructing the common HTML around the payload for all pages.&lt;/p&gt;
+
+&lt;p&gt;As usual, the whole code can be found at &lt;a href=&quot;http://github.com/christianberg/compojureongae&quot;&gt;Github&lt;/a&gt;. The version as
+of this writing is &lt;a href=&quot;http://github.com/christianberg/compojureongae/tree/v0.2.0&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2&gt;Basic Security&lt;/h2&gt;
+
+&lt;p&gt;I don't want the whole world to be able to post to my blog, so I need
+some authentication and authorization. I could use the App Engine
+Users API, but I'll leave that for a later post. Instead I'll go the
+simple route and enable security for some URLs in the deployment
+descriptor. That way the application itself is blissfully unaware of
+it. I just need to add this to the web.xml file:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/420841.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;  &amp;lt;security-constraint&amp;gt;
+    &amp;lt;web-resource-collection&amp;gt;
+      &amp;lt;url-pattern&amp;gt;/new&amp;lt;/url-pattern&amp;gt;
+      &amp;lt;url-pattern&amp;gt;/post&amp;lt;/url-pattern&amp;gt;
+    &amp;lt;/web-resource-collection&amp;gt;
+    &amp;lt;auth-constraint&amp;gt;
+      &amp;lt;role-name&amp;gt;admin&amp;lt;/role-name&amp;gt;
+    &amp;lt;/auth-constraint&amp;gt;
+  &amp;lt;/security-constraint&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now only logged-in admin users can post new entries. You can see the
+deployed version of the app here:
+&lt;a href=&quot;http://v0-2.latest.compojureongae.appspot.com/&quot;&gt;http://v0-2.latest.compojureongae.appspot.com/&lt;/a&gt;&lt;/p&gt;
+
+&lt;h2&gt;What about the REPL!?&lt;/h2&gt;
+
+&lt;p&gt;Okay, everything works fine. I can compile the project, start the
+dev_appserver to test it locally and deploy it to the Google cloud
+(see &lt;a href=&quot;/blog/2010/05/11/deploying-to-app-engine&quot;&gt;my last post&lt;/a&gt; for the steps). But what about interactive
+development? When I try to call e.g. the &lt;code&gt;create-entity&lt;/code&gt; function from
+a REPL, I only get an Exception. So I can develop and deploy working
+software, but I'm back to the dreaded edit-compile-run cycle - that's
+not the Clojure way.&lt;/p&gt;
+
+&lt;p&gt;I need to fix this, but it'll have to wait until the next post. Sorry...&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>Deploying to App Engine</title>
+    <link href="http://christianberg.github.com/blog/2010/05/11/deploying-to-app-engine"/>
+    <updated>2010-05-11T00:00:00+02:00</updated>
+    <id>http://christianberg.github.com/blog/2010/05/11/deploying-to-app-engine</id>
+    <content type="html">&lt;p&gt;In my &lt;a href=&quot;/blog/2010/05/07/a-fresh-start&quot;&gt;last post&lt;/a&gt;, I set up a basic Hello World Compojure app,
+running on a local Jetty instance. Now I want to deploy this to Google
+App Engine.&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+
+&lt;h2&gt;Creating a Servlet&lt;/h2&gt;
+
+&lt;p&gt;App Engine expects a standard Java web application, which means we
+have to take a small step out of pure Clojure-land into the Java realm
+and implement the HttpServlet interface. The defservice macro from the
+ring API makes this trivial.&lt;/p&gt;
+
+&lt;p&gt;Obviously, Google runs their own app servers, so we don't need to
+start a Jetty instance. The updated core.clj looks like this:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/397298.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(ns compojureongae.core
+  (:gen-class :extends javax.servlet.http.HttpServlet)
+  (:use compojure.core
+        ring.util.servlet)
+  (:require [compojure.route :as route]))
+
+(defroutes example
+  (GET &amp;quot;/&amp;quot; [] &amp;quot;&amp;lt;h1&amp;gt;Hello World Wide Web!&amp;lt;/h1&amp;gt;&amp;quot;)
+  (route/not-found &amp;quot;Page not found&amp;quot;))
+
+(defservice example)&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The project.clj file needs to be updated to reflect the changed
+dependencies:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/397390.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defproject compojureongae &amp;quot;0.1.0&amp;quot;
+  :description &amp;quot;Example app for deployoing Compojure on Google App Engine&amp;quot;
+  :namespaces [compojureongae.core]
+  :dependencies [[compojure &amp;quot;0.4.0-SNAPSHOT&amp;quot;]
+                 [ring/ring-servlet &amp;quot;0.2.1&amp;quot;]]
+  :dev-dependencies [[leiningen/lein-swank &amp;quot;1.2.0-SNAPSHOT&amp;quot;]]
+  :compile-path &amp;quot;war/WEB-INF/classes&amp;quot;
+  :library-path &amp;quot;war/WEB-INF/lib&amp;quot;)&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Note that I added a &lt;code&gt;:namespaces&lt;/code&gt; entry. This triggers the AOT
+compilation of the Clojure source into Java bytecode. &lt;strong&gt;[Edit]&lt;/strong&gt; I
+also customized some paths - more on that below. &lt;strong&gt;[/Edit]&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Google App Engine requires two config files, &lt;code&gt;web.xml&lt;/code&gt; and
+&lt;code&gt;appengine-web.xml&lt;/code&gt;. For my simple app, these are pretty
+straight-forward. The &lt;code&gt;web.xml&lt;/code&gt; defines the mapping from URL patterns
+to servlet classes. Here it is:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/397401.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;&amp;lt;?xml version=&amp;quot;1.0&amp;quot; encoding=&amp;quot;ISO-8859-1&amp;quot;?&amp;gt;
+&amp;lt;web-app 
+   xmlns=&amp;quot;http://java.sun.com/xml/ns/javaee&amp;quot; 
+   xmlns:xsi=&amp;quot;http://www.w3.org/2001/XMLSchema-instance&amp;quot;
+   xsi:schemaLocation=&amp;quot;http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd&amp;quot;
+   version=&amp;quot;2.5&amp;quot;&amp;gt; 
+  &amp;lt;display-name&amp;gt;Compojure on GAE&amp;lt;/display-name&amp;gt;
+  
+  &amp;lt;servlet&amp;gt;
+    &amp;lt;servlet-name&amp;gt;blog&amp;lt;/servlet-name&amp;gt;
+    &amp;lt;servlet-class&amp;gt;compojureongae.core&amp;lt;/servlet-class&amp;gt;
+  &amp;lt;/servlet&amp;gt;
+
+  &amp;lt;servlet-mapping&amp;gt;
+    &amp;lt;servlet-name&amp;gt;blog&amp;lt;/servlet-name&amp;gt;
+    &amp;lt;url-pattern&amp;gt;/&amp;lt;/url-pattern&amp;gt;
+  &amp;lt;/servlet-mapping&amp;gt;
+&amp;lt;/web-app&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The &lt;code&gt;servlet-name&lt;/code&gt; (&lt;code&gt;blog&lt;/code&gt;) is a generic identifier, you can use
+anything you like. The &lt;code&gt;servlet-class&lt;/code&gt; needs to be the clojure namespace
+that implements the &lt;code&gt;HttpServlet&lt;/code&gt; interface - in this case
+&lt;code&gt;compojureongae.core&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;In the &lt;code&gt;appengine-web.xml&lt;/code&gt; we set the GAE application id and an
+arbitrary version string:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/397411.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;&amp;lt;appengine-web-app xmlns=&amp;quot;http://appengine.google.com/ns/1.0&amp;quot;&amp;gt;
+  &amp;lt;!-- Replace this with your application id from http://appengine.google.com --&amp;gt;
+  &amp;lt;application&amp;gt;compojureongae&amp;lt;/application&amp;gt;
+
+  &amp;lt;version&amp;gt;v0-1&amp;lt;/version&amp;gt;
+
+&amp;lt;/appengine-web-app&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;I set up a github repository for my experiments at
+&lt;a href=&quot;http://github.com/christianberg/compojureongae&quot;&gt;http://github.com/christianberg/compojureongae&lt;/a&gt;.
+The code as of the time of this blog post can be found at
+&lt;a href=&quot;http://github.com/christianberg/compojureongae/tree/v0.1.1&quot;&gt;http://github.com/christianberg/compojureongae/tree/v0.1.1&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2&gt;Building the war&lt;/h2&gt;
+
+&lt;p&gt;&lt;strong&gt;[Update]&lt;/strong&gt;
+Sometimes things are much easier than they first appear. My initial
+&quot;build process&quot; (using &lt;a href=&quot;http://github.com/alienscience/leiningen-war&quot;&gt;leiningen-war&lt;/a&gt;) was way too
+complicated. Thanks to
+&lt;a href=&quot;http://buntin.org/2010/03/02/leiningen-clojure-google-app-engine-interesting/&quot;&gt;http://buntin.org/2010/03/02/leiningen-clojure-google-app-engine-interesting/&lt;/a&gt;
+for putting me on the right track. Here's how I do it now:&lt;/p&gt;
+
+&lt;p&gt;The deployment artifact for GAE is a standard java war file - actually
+a war directory, i.e. an unzipped war file. This makes the build
+process pretty trivial, you just have to adhere to the standard war
+directory structure. This is accomplished by customizing the
+&lt;code&gt;:library-path&lt;/code&gt; and &lt;code&gt;:compile-path&lt;/code&gt; in the &lt;code&gt;project.clj&lt;/code&gt; (see
+above). Building the project is simply done with the standard lein
+commands:&lt;/p&gt;
+
+&lt;div&gt;&lt;figure role=code&gt;&lt;pre&gt;&lt;code&gt;lein clean
+lein deps
+lein compile&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The current stable version of leiningen (1.1.0) mixes the dependencies
+and the dev-dependencies. If you don't want the dev-dependency jars
+included in your deployment, run this sequence of commands before
+deploying:&lt;/p&gt;
+
+&lt;div&gt;&lt;figure role=code&gt;&lt;pre&gt;&lt;code&gt;lein clean
+lein deps skip
+lein compile&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The development version of leiningen (1.2.0-SNAPSHOT) separates the
+dev-dependencies into lib/dev, so you might want to check it out.
+&lt;strong&gt;[/Update]&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Now we have a war directory that can be used by the scripts that come
+with the App Engine SDK. If you haven't yet, &lt;a href=&quot;http://code.google.com/appengine/downloads.html#Google_App_Engine_SDK_for_Java&quot;&gt;download&lt;/a&gt; it now.&lt;/p&gt;
+
+&lt;h2&gt;Testing the war&lt;/h2&gt;
+
+&lt;p&gt;To make sure our war file is ok, let's test it locally. I unpacked the
+SDK in the directory &lt;code&gt;$GAESDK&lt;/code&gt;. Here's how to start the local server:&lt;/p&gt;
+
+&lt;div&gt;&lt;figure role=code&gt;&lt;pre&gt;&lt;code&gt;$GAESDK/bin/dev_appserver.sh war&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;&lt;/div&gt;
+
+
+&lt;p&gt;You should see the familiar page at &lt;a href=&quot;http://localhost:8080/&quot;&gt;http://localhost:8080/&lt;/a&gt;&lt;/p&gt;
+
+&lt;h2&gt;Into the Cloud!&lt;/h2&gt;
+
+&lt;p&gt;It's time to deploy. Just run&lt;/p&gt;
+
+&lt;div&gt;&lt;figure role=code&gt;&lt;pre&gt;&lt;code&gt;$GAESDK/bin/appcfg.sh update war&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Enter your Google login when prompted and wait for the app to
+deploy. (Remember that you need to create an Application in the GAE
+admin dashboard first and put it's app id in the &lt;code&gt;appengine-web.xml&lt;/code&gt;.)&lt;/p&gt;
+
+&lt;p&gt;The app is now live in the cloud. You can see my deployed version here:
+&lt;a href=&quot;http://v0-1.latest.compojureongae.appspot.com/&quot;&gt;http://v0-1.latest.compojureongae.appspot.com/&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Have fun! If this inspires you to do your own experiments with Clojure
+on App Engine, leave a comment below!&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>A Fresh Start</title>
+    <link href="http://christianberg.github.com/blog/2010/05/07/a-fresh-start"/>
+    <updated>2010-05-07T00:00:00+02:00</updated>
+    <id>http://christianberg.github.com/blog/2010/05/07/a-fresh-start</id>
+    <content type="html">&lt;p&gt;Since my last post a lot has happened in Clojure- and
+Compojure-Land. Managing dependencies and building projects is much
+easier now that there is &lt;a href=&quot;http://github.com/technomancy/leiningen&quot;&gt;Leiningen&lt;/a&gt; and more people
+have played around with Clojure on Google App Engine, some are even
+deploying live apps (check out &lt;a href=&quot;http://the-deadline.appspot.com/&quot;&gt;TheDeadline&lt;/a&gt;).&lt;/p&gt;
+
+&lt;p&gt;So I decided to build upon these great contributions and (finally)
+continue this little tutorial.&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+
+&lt;h2&gt;Create a new project&lt;/h2&gt;
+
+&lt;p&gt;From my last post, you can still read the part about Emacs, but you
+can forget about getting all the dependencies. We'll use Leiningen for
+that. To install Leiningen, follow the &lt;a href=&quot;http://github.com/technomancy/leiningen&quot;&gt;installation instructions&lt;/a&gt;.
+Then create a new project:&lt;/p&gt;
+
+&lt;div&gt;&lt;figure role=code&gt;&lt;pre&gt;&lt;code&gt;lein new compojureongae&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This creates the basic directory structure with some skeleton
+code. Edit the project.clj file to look like this:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/393313.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(defproject compojureongae &amp;quot;0.1.0-SNAPSHOT&amp;quot;
+  :description &amp;quot;Example app for deployoing Compojure on Google App Engine&amp;quot;
+  :dependencies [[compojure &amp;quot;0.4.0-SNAPSHOT&amp;quot;]
+                 [ring/ring-jetty-adapter &amp;quot;0.2.0&amp;quot;]]
+  :dev-dependencies [[leiningen/lein-swank &amp;quot;1.1.0&amp;quot;]])&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;I removed the direct dependencies on clojure and clojure-contrib,
+since depending on compojure automatically pulls these, but you could
+leave them in (e.g. if you need a specific version). The
+dev-dependency on lein-swank gives me integration with Emacs while
+letting Leiningen handle the classpath config.&lt;/p&gt;
+
+&lt;p&gt;Running &lt;code&gt;lein deps&lt;/code&gt; (in the directory containing project.clj)
+downloads all required libraries and puts them in the lib directory.&lt;/p&gt;
+
+&lt;h2&gt;Start Hacking&lt;/h2&gt;
+
+&lt;p&gt;Run &lt;code&gt;lein swank&lt;/code&gt; to start a REPL, open Emacs and enter
+&lt;code&gt;M-x slime-connect&lt;/code&gt; to connect to the REPL. Now we can start hacking
+away in Emacs! Open &lt;code&gt;src/compojureongae/core.clj&lt;/code&gt; and enter the
+following:&lt;/p&gt;
+
+&lt;div&gt;&lt;script src='https://gist.github.com/393319.js?file='&gt;&lt;/script&gt;
+&lt;noscript&gt;&lt;pre&gt;&lt;code&gt;(ns compojureongae.core
+  (:use compojure.core
+        ring.adapter.jetty)
+  (:require [compojure.route :as route]))
+
+(defroutes example
+  (GET &amp;quot;/&amp;quot; [] &amp;quot;&amp;lt;h1&amp;gt;Hello World Wide Web!&amp;lt;/h1&amp;gt;&amp;quot;)
+  (route/not-found &amp;quot;Page not found&amp;quot;))
+
+(run-jetty example {:port 8080})
+&lt;/code&gt;&lt;/pre&gt;&lt;/noscript&gt;&lt;/div&gt;
+
+
+&lt;p&gt;(This is taken directly from Compojure's &lt;a href=&quot;http://weavejester.github.com/compojure/docs/getting-started.html&quot;&gt;Getting Started&lt;/a&gt; page.)
+Pressing &lt;code&gt;C-c C-k&lt;/code&gt; compiles the file and starts the server - you can
+see the output in the shell where you ran lein swank. Now browse to
+&lt;a href=&quot;http://localhost:8080/&quot;&gt;http://localhost:8080/&lt;/a&gt; to see your first Compojure app.&lt;/p&gt;
+
+&lt;p&gt;Next step: Deploying this to Google App Engine!&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>Setting up the Dev Environment</title>
+    <link href="http://christianberg.github.com/blog/2009/10/24/setting-up-the-dev-environment"/>
+    <updated>2009-10-24T00:00:00+02:00</updated>
+    <id>http://christianberg.github.com/blog/2009/10/24/setting-up-the-dev-environment</id>
+    <content type="html">&lt;p&gt;In this post I'll cover the setup I use for developing my Compojure/GAE app.&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+
+&lt;h2&gt;Emacs&lt;/h2&gt;
+
+&lt;p&gt;Of course you can use any editor you like to edit your source code,
+but Emacs has some great features for editing Lisp code that make
+developing in Clojure a pure joy. When properly set up, you can add
+new or modify existing code and inspect all your data while the
+application is running.&lt;/p&gt;
+
+&lt;p&gt;I followed the instructions at &lt;a href=&quot;http://technomancy.us/126&quot;&gt;http://technomancy.us/126&lt;/a&gt; to set up
+Slime/Swank for Clojure and it worked flawlessly without any
+modifications. I can also recommend the &lt;a href=&quot;http://github.com/technomancy/emacs-starter-kit&quot;&gt;Emacs Starter Kit&lt;/a&gt; that is
+mentioned in the above post.&lt;/p&gt;
+
+&lt;h2&gt;Clojure&lt;/h2&gt;
+
+&lt;p&gt;There are several options for getting the clojure.jar that you'll need:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Download it from &lt;a href=&quot;http://code.google.com/p/clojure/downloads/list&quot;&gt;http://code.google.com/p/clojure/downloads/list&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;Clone the git repository at &lt;a href=&quot;http://github.com/richhickey/clojure&quot;&gt;http://github.com/richhickey/clojure&lt;/a&gt;
+and build from source using ant&lt;/li&gt;
+&lt;li&gt;If you're using Emacs and followed the instructions above, you can
+automatically download the source and build it using the
+&lt;code&gt;clojure-install&lt;/code&gt; command.&lt;/li&gt;
+&lt;li&gt;Compojure provides a zip file of its dependendies (see below),
+this also includes Clojure.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h2&gt;Compojure&lt;/h2&gt;
+
+&lt;p&gt;You can download a tarball of the Compojure sources from
+&lt;a href=&quot;http://github.com/weavejester/compojure/downloads&quot;&gt;http://github.com/weavejester/compojure/downloads&lt;/a&gt;, but I'd recommend
+cloning the git repository at
+&lt;a href=&quot;http://github.com/weavejester/compojure&quot;&gt;http://github.com/weavejester/compojure&lt;/a&gt;. Either way you'll build
+the compojure.jar from source using ant.&lt;/p&gt;
+
+&lt;p&gt;Compojure has a few dependencies. You can download a zip file
+containing all needed jars (including clojure.jar and
+clojure-contrib.jar) from the download link above, or you can just run
+&lt;code&gt;ant dep&lt;/code&gt;, which will download the zip for you.&lt;/p&gt;
+
+&lt;h2&gt;Google App Engine SDK&lt;/h2&gt;
+
+&lt;p&gt;Download the latest GAE SDK from
+&lt;a href=&quot;http://code.google.com/appengine/downloads.html&quot;&gt;http://code.google.com/appengine/downloads.html&lt;/a&gt;. Choose the SDK for
+Java and unzip it somewhere.&lt;/p&gt;
+
+&lt;p&gt;In the next post I'll create a simplistic Hello World Compojure app.&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>Compojure on GAE - What's this about?</title>
+    <link href="http://christianberg.github.com/blog/2009/10/08/compojure-on-gae-whats-this-about"/>
+    <updated>2009-10-08T00:00:00+02:00</updated>
+    <id>http://christianberg.github.com/blog/2009/10/08/compojure-on-gae-whats-this-about</id>
+    <content type="html">&lt;p&gt;I'm interested in the Clojure programming language and the Google App
+Engine platform right now, and I'm playing around  with the
+combination of both.  Since there isn't a whole lot of information on
+this on  the net, I thought I'd share the results of my experiments in
+this blog. Here's the rundown on what this will (and won't) be about:&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+
+&lt;h2&gt;Clojure&lt;/h2&gt;
+
+&lt;p&gt;Clojure is a functional programming language of the Lisp family,
+designed with concurrency in mind to make it easy to write
+multi-threaded programs. It runs on the Java Virtual Machine and can
+call (and be called from) Java code. I'm not going to write a tutorial
+on programming Clojure (many others can do this better than me) nor am
+I going to try to convince you that Clojure is the greatest language
+in the world. I just think it's very interesting and I assume you do,
+too - otherwise you probably wouldn't have stumbled across this
+site. If you want to learn more about Clojure, the
+&lt;a href=&quot;http://www.clojure.org/&quot;&gt;official website&lt;/a&gt; provides very good documentation. I highly
+recommend watching the &lt;a href=&quot;http://clojure.blip.tv/&quot;&gt;videos&lt;/a&gt; of Rich Hickey's talks, they got me
+hooked in the first place.&lt;/p&gt;
+
+&lt;h2&gt;Compojure&lt;/h2&gt;
+
+&lt;p&gt;Compojure is one of the frameworks for developing web applications in
+Clojure that are being developed right now. I don't know if it's the
+best, but it's the one I'm playing around with. The documentation
+isn't very extensive, but you can find some at
+&lt;a href=&quot;http://preview.compojure.org&quot;&gt;http://preview.compojure.org&lt;/a&gt; and there's an active
+&lt;a href=&quot;http://groups.google.com/group/compojure&quot;&gt;Google group&lt;/a&gt;. You can grab the code at &lt;a href=&quot;http://github.com/weavejester/compojure&quot;&gt;GitHub&lt;/a&gt;. For getting
+started I recommend this &lt;a href=&quot;http://groups.google.com/group/compojure/browse_thread/thread/3c507da23540da6e&quot;&gt;short tutorial&lt;/a&gt; by Compojure's creator,
+James Reeves.&lt;/p&gt;
+
+&lt;h2&gt;Google App Engine&lt;/h2&gt;
+
+&lt;p&gt;&lt;a href=&quot;http://appengine.google.com/&quot;&gt;Google App Engine&lt;/a&gt; (GAE) is a service provided by Google that
+let's you develop web applications that can be deployed to Google's
+server infrastructure. Google provides several APIs that applications
+can use, e.g. for user authentication and storing data in a
+distributed data store. The idea is that applications can easily scale
+to handle everything from very small to very large loads. When App
+Engine was initially released it only provided a Python runtime
+environment. In April 2009 the Java runtime for App Engine was
+introduced. This opened the door not only for Java programs but for a
+number of languages that run on the JVM, including Clojure.&lt;/p&gt;
+
+&lt;h2&gt;The example app: A blog! (yawn)&lt;/h2&gt;
+
+&lt;p&gt;I chose to implement a little blogging application to experiment with
+Clojure/Compojure on GAE. This isn't very exciting at all and I don't
+intend to actually use it. But it is simple and straightforward and
+displays much of the functionality of a typical web app: displaying
+pages, handling form input, storing and retrieving persistent data and
+authenticating users. (Edit: After reading &lt;a href=&quot;http://stackoverflow.com/questions/471940/why-does-every-man-and-his-dog-want-to-code-a-blogging-engine&quot;&gt;this question&lt;/a&gt; on
+stackoverflow I feel a little bad about my choice of example app. But
+at least I'm in good company...)&lt;/p&gt;
+
+&lt;p&gt;So, that's the plan. In the next post I'll talk about setting up the
+development environment.&lt;/p&gt;
+</content>
+  </entry>
+  
+</feed>

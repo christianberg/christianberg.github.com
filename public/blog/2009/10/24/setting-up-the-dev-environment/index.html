@@ -1,0 +1,288 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7" manifest="default.appcache?v=1"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" manifest="default.appcache?v=1" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Compojure on GAE: Setting up the Dev Environment</title>
+  <meta name="author" content="Christian Berg">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+
+  <link href="/favicon.png" rel="shortcut icon" />
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="http://s3.amazonaws.com/ender-js/jeesh.min.js"></script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <link href='http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
+  <link href='http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
+  <link href="/atom.xml" rel="alternate" title="Compojure on GAE" type="application/atom+xml"/>
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-21431349-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+  
+  <script type="text/javascript">
+    (function() {
+      var script = document.createElement('script'); script.type = 'text/javascript'; script.async = true;
+      script.src = 'https://apis.google.com/js/plusone.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(script, s);
+    })();
+  </script>
+
+
+  
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+</head>
+
+<body  >
+  <header><hgroup>
+  <h1><a href="/">Compojure on GAE</a></h1>
+  
+    <h2>Deploying a Clojure web app on Google App Engine</h2>
+  
+</hgroup>
+</header>
+  <nav role=navigation><ul role=subscription data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+<form action="http://google.com/search" method="get">
+  <fieldset role="site-search">
+    <input type="hidden" name="q" value="site:christianberg.github.com" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+<ul role=main-navigation>
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry">
+  
+  <header>
+    
+      <h1 class="entry-title">Setting Up the Dev Environment</h1>
+    
+    
+      <p class="meta">
+
+
+
+
+<time datetime="Sat Oct 24 00:00:00 +0200 2009" pubdate  updated >Oct 24<span>th</span>, 2009</time>
+
+
+</p>
+    
+  </header>
+
+
+<div class="entry-content"><p>In this post I&#8217;ll cover the setup I use for developing my Compojure/GAE app.</p>
+
+<!--more-->
+
+
+<h2>Emacs</h2>
+
+<p>Of course you can use any editor you like to edit your source code,
+but Emacs has some great features for editing Lisp code that make
+developing in Clojure a pure joy. When properly set up, you can add
+new or modify existing code and inspect all your data while the
+application is running.</p>
+
+<p>I followed the instructions at <a href="http://technomancy.us/126">http://technomancy.us/126</a> to set up
+Slime/Swank for Clojure and it worked flawlessly without any
+modifications. I can also recommend the <a href="http://github.com/technomancy/emacs-starter-kit">Emacs Starter Kit</a> that is
+mentioned in the above post.</p>
+
+<h2>Clojure</h2>
+
+<p>There are several options for getting the clojure.jar that you&#8217;ll need:</p>
+
+<ul>
+<li>Download it from <a href="http://code.google.com/p/clojure/downloads/list">http://code.google.com/p/clojure/downloads/list</a></li>
+<li>Clone the git repository at <a href="http://github.com/richhickey/clojure">http://github.com/richhickey/clojure</a>
+and build from source using ant</li>
+<li>If you&#8217;re using Emacs and followed the instructions above, you can
+automatically download the source and build it using the
+<code>clojure-install</code> command.</li>
+<li>Compojure provides a zip file of its dependendies (see below),
+this also includes Clojure.</li>
+</ul>
+
+
+<h2>Compojure</h2>
+
+<p>You can download a tarball of the Compojure sources from
+<a href="http://github.com/weavejester/compojure/downloads">http://github.com/weavejester/compojure/downloads</a>, but I&#8217;d recommend
+cloning the git repository at
+<a href="http://github.com/weavejester/compojure">http://github.com/weavejester/compojure</a>. Either way you&#8217;ll build
+the compojure.jar from source using ant.</p>
+
+<p>Compojure has a few dependencies. You can download a zip file
+containing all needed jars (including clojure.jar and
+clojure-contrib.jar) from the download link above, or you can just run
+<code>ant dep</code>, which will download the zip for you.</p>
+
+<h2>Google App Engine SDK</h2>
+
+<p>Download the latest GAE SDK from
+<a href="http://code.google.com/appengine/downloads.html">http://code.google.com/appengine/downloads.html</a>. Choose the SDK for
+Java and unzip it somewhere.</p>
+
+<p>In the next post I&#8217;ll create a simplistic Hello World Compojure app.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Christian Berg</span></span>
+
+      
+
+
+
+
+<time datetime="Sat Oct 24 00:00:00 +0200 2009" pubdate  updated >Oct 24<span>th</span>, 2009</time>
+
+
+
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/compojureongae/'>compojureongae</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://christianberg.github.com/blog/2009/10/24/setting-up-the-dev-environment" data-via="cdberg" data-counturl="http://christianberg.github.com/blog/2009/10/24/setting-up-the-dev-environment" >Tweet</a>
+  
+  
+  <g:plusone size="medium"></g:plusone>
+  
+</div>
+
+    
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread"><div id="disqus_thread"></div>
+<script type="text/javascript">
+  var disqus_shortname = 'compojureongae';
+  var disqus_identifier = 'http://christianberg.github.com/blog/2009/10/24/setting-up-the-dev-environment';
+  var disqus_url = 'http://christianberg.github.com/blog/2009/10/24/setting-up-the-dev-environment';
+  //var disqus_developer = 1;
+  (function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+  })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+      
+        <aside role=sidebar><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2010/06/09/using-the-app-engine-users-api">Using the App Engine Users API from Clojure</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/06/04/getting-interactive-development-to-work-again">Getting Interactive Development to Work (Again)</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/06/01/accessing-the-app-engine-datastore">Accessing the App Engine Datastore</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/05/11/deploying-to-app-engine">Deploying to App Engine</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/05/07/a-fresh-start">A Fresh Start</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating...</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("cdberg", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/cdberg" class="twitter-follow-button" data-width="208px" data-show-count="false">Follow @cdberg</a>
+  
+</section>
+
+
+
+
+
+
+</aside>
+      
+    </div>
+  </div>
+  <footer><p>
+  Copyright &copy; 2009-2011 - Christian Berg -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+</footer>
+</body>
+</html>

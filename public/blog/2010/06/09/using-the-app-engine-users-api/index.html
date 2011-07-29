@@ -1,0 +1,481 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7" manifest="default.appcache?v=1"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" manifest="default.appcache?v=1" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Compojure on GAE: Using the App Engine Users API from Clojure</title>
+  <meta name="author" content="Christian Berg">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+
+  <link href="/favicon.png" rel="shortcut icon" />
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="http://s3.amazonaws.com/ender-js/jeesh.min.js"></script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <link href='http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
+  <link href='http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
+  <link href="/atom.xml" rel="alternate" title="Compojure on GAE" type="application/atom+xml"/>
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-21431349-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+  
+  <script type="text/javascript">
+    (function() {
+      var script = document.createElement('script'); script.type = 'text/javascript'; script.async = true;
+      script.src = 'https://apis.google.com/js/plusone.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(script, s);
+    })();
+  </script>
+
+
+  
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+</head>
+
+<body  >
+  <header><hgroup>
+  <h1><a href="/">Compojure on GAE</a></h1>
+  
+    <h2>Deploying a Clojure web app on Google App Engine</h2>
+  
+</hgroup>
+</header>
+  <nav role=navigation><ul role=subscription data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+<form action="http://google.com/search" method="get">
+  <fieldset role="site-search">
+    <input type="hidden" name="q" value="site:christianberg.github.com" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+<ul role=main-navigation>
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry">
+  
+  <header>
+    
+      <h1 class="entry-title">Using the App Engine Users API From Clojure</h1>
+    
+    
+      <p class="meta">
+
+
+
+
+<time datetime="Wed Jun 09 00:00:00 +0200 2010" pubdate  updated >Jun 9<span>th</span>, 2010</time>
+
+
+</p>
+    
+  </header>
+
+
+<div class="entry-content"><p>In my previous post about <a href="/blog/2010/06/01/accessing-the-app-engine-datastore">Accessing the Datastore</a> I set up basic
+security using a <code>security-constraint</code> element in the deployment
+descriptor (<code>web.xml</code>). This was simple, as the app didn&#8217;t have to be
+aware of security concerns at all. The downside is that the app
+doesn&#8217;t know if the user is logged in and can&#8217;t react to that. For
+example, the &#8220;Create new post&#8221; link is shown to all users, only after
+clicking it (and logging in) they get an ugly error message about
+missing privileges. This is bad usability, so let&#8217;s use the App Engine
+Users API and move the authentication and authorization into the app.</p>
+
+<!--more-->
+
+
+<h2>Setting up the routes</h2>
+
+<p>To make things easier, I changed my route definitions, separating the
+public routes from those that need admin privileges. All admin route
+URLs now start with <code>/admin</code>:</p>
+
+<div><script src='https://gist.github.com/431270.js?file='></script>
+<noscript><pre><code>(defroutes public-routes
+  (GET &quot;/&quot; [] (main-page)))
+
+(defroutes admin-routes
+  (GET  &quot;/admin/new&quot;  [] (render-page &quot;New Post&quot; new-form))
+  (POST &quot;/admin/post&quot; [title body] (create-post title body)))</code></pre></noscript></div>
+
+
+<p>The admin-routes are only allowed to be accessed by logged-in users
+with admin privileges.  <a href="http://github.com/r0man/appengine-clj">appengine-clj</a> already comes with two
+middleware functions that help with this: <code>wrap-with-user-info</code> adds
+references to the UserService and (if a user is logged in) User
+objects from the App Engine API to each
+request. <code>wrap-requiring-login</code> checks that the user is logged in
+before passing the request on to the wrapped handler - if not, the
+user is redirected to the login page.</p>
+
+<p>There&#8217;s no <code>wrap-requiring-admin</code> (yet), so I quickly wrote it myself:</p>
+
+<div><script src='https://gist.github.com/431336.js?file='></script>
+<noscript><pre><code>(defn wrap-requiring-admin [application]
+  (fn [request]
+    (let [{:keys [user-service]} (users/user-info request)]
+      (if (.isUserAdmin user-service)
+        (application request)
+        {:status 403 :body &quot;Access denied. You must be logged in as admin user!&quot;}))))
+</code></pre></noscript></div>
+
+
+<p><code>wrap-requiring-admin</code> depends on <code>wrap-requiring-login</code>, which in
+turn depends on <code>wrap-with-user-info</code>, so I have to decorate my
+<code>admin-routes</code> handler with all three:</p>
+
+<div><script src='https://gist.github.com/431338.js?file='></script>
+<noscript><pre><code>(wrap! admin-routes
+       wrap-requiring-admin
+       users/wrap-requiring-login
+       users/wrap-with-user-info)
+</code></pre></noscript></div>
+
+
+<p>Finally, the routes are combined into my main handler:</p>
+
+<div><script src='https://gist.github.com/431343.js?file='></script>
+<noscript><pre><code>(defroutes example
+  public-routes
+  (ANY &quot;/admin/*&quot; [] admin-routes)
+  (route/not-found &quot;Page not found&quot;))
+</code></pre></noscript></div>
+
+
+<p>Why can&#8217;t I just put <code>admin-routes</code> in there, just like
+<code>public-routes</code>? The problem is, that the middleware I wrapped around
+<code>admin-routes</code> jumps in before the route-matching. So even if
+<code>admin-routes</code> can&#8217;t match the request URL and passes on control to
+the next handler, it first makes sure that the user is logged in as an
+admin. In this case, the <code>not-found</code> handler (which always has to be
+last) could only be reached by admins, all other users would have to
+login and then get a 403 error when they enter a non-existing URL.
+Therefor, I have to make sure that the <code>admin-routes</code> handler is only
+called for URLs starting with /admin.</p>
+
+<h2>Checking the users login status</h2>
+
+<p>So far, the new code does the same thing the old configuration did, I
+haven&#8217;t won anything. So let&#8217;s make the site a little more dynamic and
+change the output depending on the users login status. I changed the
+sidebar to display information about the current user and login/logout
+links. Also, the &#8220;Create new post&#8221; link is only shown for logged-in
+admin users:</p>
+
+<div><script src='https://gist.github.com/431458.js?file='></script>
+<noscript><pre><code>(defn side-bar []
+  (let [ui (users/user-info)]
+    [:div#sidebar
+     [:h3 &quot;Current User&quot;]
+     (if-let [user (:user ui)]
+       [:ul
+        [:li &quot;Logged in as &quot; (.getEmail user)]
+        [:li (link-to (.createLogoutURL (:user-service ui) &quot;/&quot;) &quot;Logout&quot;)]]
+       [:ul
+        [:li &quot;Not logged in&quot;]
+        [:li (link-to (.createLoginURL (:user-service ui) &quot;/&quot;) &quot;Login&quot;)]]
+       )
+     [:h3 &quot;Navigation&quot;]
+     [:ul
+      [:li (link-to &quot;/&quot; &quot;Main page&quot;)]
+      (if (and (:user ui) (.isUserAdmin (:user-service ui)))
+        [:li (link-to &quot;/admin/new&quot; &quot;Create new post (Admin only)&quot;)])]
+     [:h3 &quot;External Links&quot;]
+     [:ul
+      [:li (link-to &quot;http://compojureongae.posterous.com/&quot; &quot;Blog&quot;)]
+      [:li (link-to &quot;http://github.com/christianberg/compojureongae&quot; &quot;Source Code&quot;)]]]))
+</code></pre></noscript></div>
+
+
+<p>(Note that <code>side-bar</code> now is a function, since the content is dynamic.)</p>
+
+<p>I&#8217;ve achieved my goals: I can login and logout and I only see the
+links I&#8217;m allowed to click. I can run this code using the local
+dev_server and I can deploy it to the Google servers (see my
+<a href="/blog/2010/05/11/deploying-to-app-engine">previous post</a> on how to do this).</p>
+
+<p>But in the interactive development environment I set up in my
+<a href="/blog/2010/06/04/getting-interactive-development-to-work-again">last post</a>, nothing works! I&#8217;m always logged out and the login
+link is broken.  Let&#8217;s fix that.</p>
+
+<h2>Making logins work in interactive development</h2>
+
+<p>The local implementation of the App Engine Users API calls an instance
+of <code>ApiProxy$Environment</code>, which I have to provide, to figure out if a
+user is logged in. In my last post, I set up a very minimal proxy,
+that always answers this question with &#8220;no&#8221;. Here&#8217;s the relevant
+snippet:</p>
+
+<div><script src='https://gist.github.com/431611.js?file='></script>
+<noscript><pre><code>        env-proxy (proxy [ApiProxy$Environment] []
+                    (isLoggedIn [] false)
+                    (getRequestNamespace [] &quot;&quot;)
+                    (getDefaultNamespace [] &quot;&quot;)
+                    (getAttributes [] att)
+                    (getAppId [] &quot;_local_&quot;))</code></pre></noscript></div>
+
+
+<p>This needs to be smarter. I decided to store information about the
+current user globally in an atom. Of course, this implies that the
+server can only be used by one user at a time - for a production
+system this would be an incredibly stupid implementation, for local
+development I think it&#8217;s ok. Other options would be to store the login
+information in session variables or directly in a cookie. Storing it
+globally has the advantage, though,  that I can easily view and modify
+the current login state from the REPL, which eases debugging (plus
+it&#8217;s simple to implement!).</p>
+
+<p>Here&#8217;s the definition of the atom holding the login information,
+prefilled with some reasonable default values:</p>
+
+<div><script src='https://gist.github.com/431638.js?file='></script>
+<noscript><pre><code>(def login-info (atom {:logged-in? false
+                       :admin? false
+                       :email &quot;&quot;
+                       :auth-domain &quot;&quot;}))
+</code></pre></noscript></div>
+
+
+<p>The updated Environment proxy just reads from the atom:</p>
+
+<div><script src='https://gist.github.com/431643.js?file='></script>
+<noscript><pre><code>(defn- set-app-engine-environment []
+  &quot;Sets up the App Engine environment for the current thread.&quot;
+  (let [att (HashMap. {&quot;com.google.appengine.server_url_key&quot;
+                       (str &quot;http://localhost:&quot; *port*)})
+        env-proxy (proxy [ApiProxy$Environment] []
+                    (isLoggedIn [] (:logged-in? @login-info))
+                    (getEmail [] (:email @login-info))
+                    (getAuthDomain [] (:auth-domain @login-info))
+                    (isAdmin [] (:admin? @login-info))
+                    (getRequestNamespace [] &quot;&quot;)
+                    (getDefaultNamespace [] &quot;&quot;)
+                    (getAttributes [] att)
+                    (getAppId [] &quot;_local_&quot;))]
+    (ApiProxy/setEnvironmentForCurrentThread env-proxy)))
+</code></pre></noscript></div>
+
+
+<p>I added two helper functions to easily modify the atom:</p>
+
+<div><script src='https://gist.github.com/431645.js?file='></script>
+<noscript><pre><code>(defn login
+  ([email] (login email false))
+  ([email admin?] (swap! login-info merge {:email email
+                                           :logged-in? true
+                                           :admin? admin?})))
+
+(defn logout []
+  (swap! login-info merge {:email &quot;&quot;
+                           :logged-in? false
+                           :admin? false}))</code></pre></noscript></div>
+
+
+<p>Now I can login and logout by calling the functions from the REPL and
+the pages served by my Jetty server immediately reflect this. But the
+login and logout links are still broken. I need to define handlers for
+these:</p>
+
+<div><script src='https://gist.github.com/431653.js?file='></script>
+<noscript><pre><code>(defroutes login-routes
+  (GET &quot;/_ah/login&quot; [continue] (login-form continue))
+  (POST &quot;/_ah/login&quot; [action email isAdmin continue] (do (if (= action &quot;Log In&quot;)
+                                                           (login email (boolean isAdmin))
+                                                           (logout))
+                                                         (redirect continue)))
+  (GET &quot;/_ah/logout&quot; [continue] (do (logout)
+                                    (redirect continue))))</code></pre></noscript></div>
+
+
+<p>The <code>login-form</code> function just builds an exact copy of the login page
+provided by the Google dev_server.</p>
+
+<p>Last but not least, I have to update the <code>start-server</code> function to
+combine these handlers with my app (the change is in line 9):</p>
+
+<div><script src='https://gist.github.com/431661.js?file='></script>
+<noscript><pre><code>(defn start-server [app]
+  &quot;Initializes the App Engine services and (re-)starts a Jetty server
+   running the supplied ring app, wrapping it to enable App Engine API use
+   and serving of static files.&quot;
+  (set-app-engine-delegate &quot;/tmp&quot;)
+  (swap! *server* (fn [instance]
+                   (when instance
+                     (.stop instance))
+                   (let [app (-&gt; (routes login-routes app)
+                                 (wrap-local-app-engine)
+                                 (wrap-file &quot;./war&quot;)
+                                 (wrap-file-info))]
+                     (run-jetty app {:port *port*
+                                     :join? false})))))</code></pre></noscript></div>
+
+
+<p>That&#8217;s all - a functioning local implementation of the Users API
+complete with working login page. I hope you enjoy it!</p>
+
+<p>As always, the complete source code can be found on <a href="http://github.com/christianberg/compojureongae">Github</a>, the
+version as of this writing is <a href="http://github.com/christianberg/compojureongae/tree/v0.3.0">here</a>.  You can see the deployed app
+<a href="http://v0-3.latest.compojureongae.appspot.com/">here</a> (of course I&#8217;m the only admin user, so you might want to try
+it locally to see the full functionality&#8230;). Questions and
+suggestions are very welcome in the comments below!</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Christian Berg</span></span>
+
+      
+
+
+
+
+<time datetime="Wed Jun 09 00:00:00 +0200 2010" pubdate  updated >Jun 9<span>th</span>, 2010</time>
+
+
+
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/compojureongae/'>compojureongae</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://christianberg.github.com/blog/2010/06/09/using-the-app-engine-users-api" data-via="cdberg" data-counturl="http://christianberg.github.com/blog/2010/06/09/using-the-app-engine-users-api" >Tweet</a>
+  
+  
+  <g:plusone size="medium"></g:plusone>
+  
+</div>
+
+    
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread"><div id="disqus_thread"></div>
+<script type="text/javascript">
+  var disqus_shortname = 'compojureongae';
+  var disqus_identifier = 'http://christianberg.github.com/blog/2010/06/09/using-the-app-engine-users-api';
+  var disqus_url = 'http://christianberg.github.com/blog/2010/06/09/using-the-app-engine-users-api';
+  //var disqus_developer = 1;
+  (function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+  })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+      
+        <aside role=sidebar><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2010/06/09/using-the-app-engine-users-api">Using the App Engine Users API from Clojure</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/06/04/getting-interactive-development-to-work-again">Getting Interactive Development to Work (Again)</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/06/01/accessing-the-app-engine-datastore">Accessing the App Engine Datastore</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/05/11/deploying-to-app-engine">Deploying to App Engine</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/05/07/a-fresh-start">A Fresh Start</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating...</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("cdberg", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/cdberg" class="twitter-follow-button" data-width="208px" data-show-count="false">Follow @cdberg</a>
+  
+</section>
+
+
+
+
+
+
+</aside>
+      
+    </div>
+  </div>
+  <footer><p>
+  Copyright &copy; 2009-2011 - Christian Berg -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+</footer>
+</body>
+</html>

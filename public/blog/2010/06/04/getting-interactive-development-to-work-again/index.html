@@ -1,0 +1,470 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7" manifest="default.appcache?v=1"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" manifest="default.appcache?v=1" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Compojure on GAE: Getting Interactive Development to Work (Again)</title>
+  <meta name="author" content="Christian Berg">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+
+  <link href="/favicon.png" rel="shortcut icon" />
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="http://s3.amazonaws.com/ender-js/jeesh.min.js"></script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <link href='http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
+  <link href='http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
+  <link href="/atom.xml" rel="alternate" title="Compojure on GAE" type="application/atom+xml"/>
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-21431349-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+  
+  <script type="text/javascript">
+    (function() {
+      var script = document.createElement('script'); script.type = 'text/javascript'; script.async = true;
+      script.src = 'https://apis.google.com/js/plusone.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(script, s);
+    })();
+  </script>
+
+
+  
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+</head>
+
+<body  >
+  <header><hgroup>
+  <h1><a href="/">Compojure on GAE</a></h1>
+  
+    <h2>Deploying a Clojure web app on Google App Engine</h2>
+  
+</hgroup>
+</header>
+  <nav role=navigation><ul role=subscription data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+<form action="http://google.com/search" method="get">
+  <fieldset role="site-search">
+    <input type="hidden" name="q" value="site:christianberg.github.com" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+<ul role=main-navigation>
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry">
+  
+  <header>
+    
+      <h1 class="entry-title">Getting Interactive Development to Work (Again)</h1>
+    
+    
+      <p class="meta">
+
+
+
+
+<time datetime="Fri Jun 04 00:00:00 +0200 2010" pubdate  updated >Jun 4<span>th</span>, 2010</time>
+
+
+</p>
+    
+  </header>
+
+
+<div class="entry-content"><p>In my <a href="/blog/2010/06/01/accessing-the-app-engine-datastore">last post</a> I promised to fix my local development setup to
+enable the interactive development style typical for Clojure and make
+the App Engine services (such as the datastore) available from the
+REPL.</p>
+
+<p>Others have already tackled the same problem. The best resource I
+found is the <a href="http://www.hackers-with-attitude.com/2010/04/clojure-google-app-engine-setup-update.html">hackers with attitude blog</a>, another one is
+<a href="http://carpathia.blogspot.com/2010/05/yet-another-clojure-compojure-google.html">here</a>.  My code is largely based on these contributions, I rolled
+my own version mainly to get a better understanding of the setup.</p>
+
+<!--more-->
+
+
+<h2>Initializing the App Engine services</h2>
+
+<p>To use the App Engine APIs outside of the Google servers, a local
+ApiProxy and Environment needs to be provided. While the ApiProxy
+needs to be initialized only once per JVM, the Environment needs to be
+set for every thread on which API calls are made. This is trivial for
+the REPL, which runs in one thread. It&#8217;s a bit more work when you want
+to run a local Jetty server, since it spawns new threads for handling
+requests. Fortunately, the design of Ring makes it easy to add
+so-called middleware to an existing web app that can handle the
+environment setup.</p>
+
+<p>Enough said, here&#8217;s the code. I&#8217;ll go through it def by def below.</p>
+
+<div><script src='https://gist.github.com/425238.js?file='></script>
+<noscript><pre><code>(ns local-dev
+  &quot;Tools for local development.
+   Enables the use of the App Engine APIs on the REPL and in a local Jetty instance.&quot;
+  (:use ring.adapter.jetty
+        [ring.middleware file file-info])
+  (:import [java.io File]
+           [java.util HashMap]
+           [com.google.apphosting.api ApiProxy ApiProxy$Environment]
+           [com.google.appengine.tools.development
+            ApiProxyLocalFactory
+            LocalServerEnvironment]))
+
+(defonce *server* (atom nil))
+(def *port* 8181)
+
+(defn- set-app-engine-environment []
+  &quot;Sets up the App Engine environment for the current thread.&quot;
+  (let [att (HashMap. {&quot;com.google.appengine.server_url_key&quot;
+                       (str &quot;http://localhost:&quot; *port*)})
+        env-proxy (proxy [ApiProxy$Environment] []
+                    (isLoggedIn [] false)
+                    (getRequestNamespace [] &quot;&quot;)
+                    (getDefaultNamespace [] &quot;&quot;)
+                    (getAttributes [] att)
+                    (getAppId [] &quot;_local_&quot;))]
+    (ApiProxy/setEnvironmentForCurrentThread env-proxy)))
+
+(defn- set-app-engine-delegate [dir]
+  &quot;Initializes the App Engine services. Needs to be run (at least) per JVM.&quot;
+  (let [local-env (proxy [LocalServerEnvironment] []
+                    (getAppDir [] (File. dir))
+                    (getAddress [] &quot;localhost&quot;)
+                    (getPort [] *port*)
+                    (waitForServerToStart [] nil))
+        api-proxy (.create (ApiProxyLocalFactory.)
+                           local-env)]
+    (ApiProxy/setDelegate api-proxy)))
+
+(defn init-app-engine
+  &quot;Initializes the App Engine services and sets up the environment. To be called from the REPL.&quot;
+  ([] (init-app-engine &quot;/tmp&quot;))
+  ([dir]
+     (set-app-engine-delegate dir)
+     (set-app-engine-environment)))
+
+(defn wrap-local-app-engine [app]
+  &quot;Wraps a ring app to enable the use of App Engine Services.&quot;
+  (fn [req]
+    (set-app-engine-environment)
+    (app req)))
+
+(defn start-server [app]
+  &quot;Initializes the App Engine services and (re-)starts a Jetty server
+   running the supplied ring app, wrapping it to enable App Engine API use
+   and serving of static files.&quot;
+  (set-app-engine-delegate &quot;/tmp&quot;)
+  (swap! *server* (fn [instance]
+                   (when instance
+                     (.stop instance))
+                   (let [app (-&gt; app
+                                 (wrap-local-app-engine)
+                                 (wrap-file &quot;./war&quot;)
+                                 (wrap-file-info))]
+                     (run-jetty app {:port *port*
+                                     :join? false})))))
+
+(defn stop-server []
+  &quot;Stops the local Jetty server.&quot;
+  (swap! *server* #(when % (.stop %))))
+
+</code></pre></noscript></div>
+
+
+<p>The code is in a separate namespace, so it doesn&#8217;t get AOT-compiled
+and deployed with the rest of the app. I&#8217;m using an atom to store the
+Jetty server instance. Using <code>defonce</code> was helpful while developing
+this, because I could recompile the file (<code>C-c C-k</code> in Emacs) without
+losing the reference to the running Jetty server.</p>
+
+<p>The two functions <code>set-app-engine-environment</code> and
+<code>set-app-engine-delegate</code> do the necessary setup work on the
+per-thread and per-jvm basis, respectively.</p>
+
+<p><code>init-app-engine</code> just calls these two functions. It&#8217;s intended to be
+called from the REPL, after which you&#8217;re able to use API calls like
+<code>create-entity</code> in the REPL.</p>
+
+<p><code>wrap-local-app-engine</code> is a Ring middleware that sets the environment
+for the current thread before passing the request on to the wrapped
+Ring (or Compojure) app.</p>
+
+<p>The <code>start-server</code> function takes a Ring app, does the per-JVM setup,
+wraps the app with the middleware for the per-thread setup and starts
+a Jetty server running the app. If there already is a Jetty server
+stored in the atom, it is stopped first, so you can use the function
+to restart the Jetty as well. The <code>:join? false</code> argument is
+important, otherwise the call to <code>run-jetty</code> will not return.</p>
+
+<p>I also added the <code>wrap-file</code> middleware to serve static files (and
+<code>wrap-file-info</code> to add Content-Type and Content-Length headers). This
+mimics the behaviour of the Google servers, which by default serve all
+files included in the war directory. (Note that, unlike the Google
+servers, this setup also serves the files in the WEB-INF directory. In
+a production system that would be a security concern, for local
+development I don&#8217;t mind.)</p>
+
+<p>Last (and also least interesting), the <code>stop-server</code> function stops
+the Jetty server (and sets the atom back to nil).</p>
+
+<h2>Setting up the classpath</h2>
+
+<p>To use the local API implementations we need some additional jars on
+the classpath. Here&#8217;s the updated project.clj:</p>
+
+<div><script src='https://gist.github.com/425239.js?file='></script>
+<noscript><pre><code>(defproject compojureongae &quot;0.2.0&quot;
+  :description &quot;Example app for deployoing Compojure on Google App Engine&quot;
+  :namespaces [compojureongae.core]
+  :dependencies [[compojure &quot;0.4.0-RC3&quot;]
+                 [ring/ring-servlet &quot;0.2.1&quot;]
+                 [hiccup &quot;0.2.4&quot;]
+                 [appengine &quot;0.2&quot;]
+                 [com.google.appengine/appengine-api-1.0-sdk &quot;1.3.4&quot;]
+                 [com.google.appengine/appengine-api-labs &quot;1.3.4&quot;]]
+  :dev-dependencies [[swank-clojure &quot;1.2.0&quot;]
+                     [ring/ring-jetty-adapter &quot;0.2.0&quot;]
+                     [com.google.appengine/appengine-local-runtime &quot;1.3.4&quot;]
+                     [com.google.appengine/appengine-api-stubs &quot;1.3.4&quot;]]
+  :compile-path &quot;war/WEB-INF/classes&quot;
+  :library-path &quot;war/WEB-INF/lib&quot;)</code></pre></noscript></div>
+
+
+<p>The new dependencies go into <code>dev-dependencies</code>, since they mustn&#8217;t be
+deployed with the app. However, in the current development version of
+Leiningen 1.2 (which separates dependencies and dev-dependencies into
+different directories), the dev-dependencies are apparently only
+intended for Leiningen plugins such as swank-clojure - they are not
+put on the classpath for the REPL. I had to patch Leiningen to make
+this work. Here&#8217;s the diff:</p>
+
+<div><script src='https://gist.github.com/425246.js?file='></script>
+<noscript><pre><code>diff --git a/src/leiningen/classpath.clj b/src/leiningen/classpath.clj
+index 3be7e1f..836740e 100644
+--- a/src/leiningen/classpath.clj
++++ b/src/leiningen/classpath.clj
+@@ -8,7 +8,9 @@
+   &quot;Returns a seq of Files for all the jars in the project's library directory.&quot;
+   [project]
+   (filter #(.endsWith (.getName %) &quot;.jar&quot;)
+-          (file-seq (file (:library-path project)))))
++          (concat
++           (file-seq (file (:library-path project)))
++           (file-seq (file (str (:root project) &quot;/lib/dev&quot;))))))
+ 
+ (defn make-path
+   &quot;Constructs an ant Path object from Files and strings.&quot;
+</code></pre></noscript></div>
+
+
+<p>I&#8217;ll try to get this (or something similar) into Leiningen. <strong>Update:
+I wasn&#8217;t the only one with this problem. It was recently patched in
+Leiningen.</strong> Stable Leiningen (1.1) will probably work out of the box
+- I haven&#8217;t tried.</p>
+
+<p>Running <code>lein deps</code> installs the new dependencies. As I said in my
+last post, you&#8217;ll likely have to manually install the jars from the
+App Engine SDK into your local Maven repository. Here&#8217;s an example
+command for one of the jars:</p>
+
+<div><script src='https://gist.github.com/425284.js?file='></script>
+<noscript><pre><code>mvn install:install-file -DgroupId=com.google.appengine \
+-DartifactId=appengine-api-labs -Dversion=1.3.4 -Dpackaging=jar \
+-Dfile=$GAESDK/lib/user/appengine-api-labs-1.3.4.jar</code></pre></noscript></div>
+
+
+<h2>Putting it to use</h2>
+
+<p>Run <code>lein swank</code>, enter <code>M-x slime-connect</code> in Emacs to connect to the
+REPL and code away as usual. To call functions that make use of the
+App Engine API, enter this in the REPL:</p>
+
+<div class="highlight"><pre><code class="clojure"><span class="p">(</span><span class="nf">require</span> <span class="ss">&#39;local-dev</span><span class="p">)</span>
+<span class="p">(</span><span class="nf">local-dev/init-app-engine</span><span class="p">)</span>
+</code></pre>
+</div>
+
+
+<p>To start a Jetty server, just enter:</p>
+
+<div class="highlight"><pre><code class="clojure"><span class="p">(</span><span class="nf">local-dev/start-server</span> <span class="p">(</span><span class="nf">var</span> <span class="nv">example</span><span class="p">))</span>
+</code></pre>
+</div>
+
+
+<p><code>example</code> is the name of the Compojure app defined by <code>defroutes</code> in
+core.clj.  <strong>Update: Using <code>var</code> here allows you to change the
+definition of <code>example</code> itself without having to restart the server.</strong></p>
+
+<h2>What&#8217;s next?</h2>
+
+<p>The next thing I&#8217;m working on is using the Users API for
+authentication and authorization (instead of the simple
+security-constraint method described in my <a href="/blog/2010/06/01/accessing-the-app-engine-datastore">last post</a>).  I&#8217;ll need
+to make some changes to this local-dev code in order to properly test
+that locally. So stay tuned&#8230;</p>
+
+<p>As always, questions and suggestions are very welcome in the comments
+section below!</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Christian Berg</span></span>
+
+      
+
+
+
+
+<time datetime="Fri Jun 04 00:00:00 +0200 2010" pubdate  updated >Jun 4<span>th</span>, 2010</time>
+
+
+
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/compojureongae/'>compojureongae</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again" data-via="cdberg" data-counturl="http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again" >Tweet</a>
+  
+  
+  <g:plusone size="medium"></g:plusone>
+  
+</div>
+
+    
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread"><div id="disqus_thread"></div>
+<script type="text/javascript">
+  var disqus_shortname = 'compojureongae';
+  var disqus_identifier = 'http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again';
+  var disqus_url = 'http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again';
+  //var disqus_developer = 1;
+  (function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+  })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+      
+        <aside role=sidebar><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2010/06/09/using-the-app-engine-users-api">Using the App Engine Users API from Clojure</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/06/04/getting-interactive-development-to-work-again">Getting Interactive Development to Work (Again)</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/06/01/accessing-the-app-engine-datastore">Accessing the App Engine Datastore</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/05/11/deploying-to-app-engine">Deploying to App Engine</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/05/07/a-fresh-start">A Fresh Start</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating...</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("cdberg", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/cdberg" class="twitter-follow-button" data-width="208px" data-show-count="false">Follow @cdberg</a>
+  
+</section>
+
+
+
+
+
+
+</aside>
+      
+    </div>
+  </div>
+  <footer><p>
+  Copyright &copy; 2009-2011 - Christian Berg -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+</footer>
+</body>
+</html>

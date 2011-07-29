@@ -1,0 +1,295 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7" manifest="default.appcache?v=1"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" manifest="default.appcache?v=1" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Compojure on GAE: Compojure on GAE - What's this about?</title>
+  <meta name="author" content="Christian Berg">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+
+  <link href="/favicon.png" rel="shortcut icon" />
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="http://s3.amazonaws.com/ender-js/jeesh.min.js"></script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <link href='http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
+  <link href='http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
+  <link href="/atom.xml" rel="alternate" title="Compojure on GAE" type="application/atom+xml"/>
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-21431349-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+  
+  <script type="text/javascript">
+    (function() {
+      var script = document.createElement('script'); script.type = 'text/javascript'; script.async = true;
+      script.src = 'https://apis.google.com/js/plusone.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(script, s);
+    })();
+  </script>
+
+
+  
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+</head>
+
+<body  >
+  <header><hgroup>
+  <h1><a href="/">Compojure on GAE</a></h1>
+  
+    <h2>Deploying a Clojure web app on Google App Engine</h2>
+  
+</hgroup>
+</header>
+  <nav role=navigation><ul role=subscription data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+<form action="http://google.com/search" method="get">
+  <fieldset role="site-search">
+    <input type="hidden" name="q" value="site:christianberg.github.com" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+<ul role=main-navigation>
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry">
+  
+  <header>
+    
+      <h1 class="entry-title">Compojure on GAE - What&#8217;s This About?</h1>
+    
+    
+      <p class="meta">
+
+
+
+
+<time datetime="Thu Oct 08 00:00:00 +0200 2009" pubdate  updated >Oct 8<span>th</span>, 2009</time>
+
+
+</p>
+    
+  </header>
+
+
+<div class="entry-content"><p>I&#8217;m interested in the Clojure programming language and the Google App
+Engine platform right now, and I&#8217;m playing around  with the
+combination of both.  Since there isn&#8217;t a whole lot of information on
+this on  the net, I thought I&#8217;d share the results of my experiments in
+this blog. Here&#8217;s the rundown on what this will (and won&#8217;t) be about:</p>
+
+<!--more-->
+
+
+<h2>Clojure</h2>
+
+<p>Clojure is a functional programming language of the Lisp family,
+designed with concurrency in mind to make it easy to write
+multi-threaded programs. It runs on the Java Virtual Machine and can
+call (and be called from) Java code. I&#8217;m not going to write a tutorial
+on programming Clojure (many others can do this better than me) nor am
+I going to try to convince you that Clojure is the greatest language
+in the world. I just think it&#8217;s very interesting and I assume you do,
+too - otherwise you probably wouldn&#8217;t have stumbled across this
+site. If you want to learn more about Clojure, the
+<a href="http://www.clojure.org/">official website</a> provides very good documentation. I highly
+recommend watching the <a href="http://clojure.blip.tv/">videos</a> of Rich Hickey&#8217;s talks, they got me
+hooked in the first place.</p>
+
+<h2>Compojure</h2>
+
+<p>Compojure is one of the frameworks for developing web applications in
+Clojure that are being developed right now. I don&#8217;t know if it&#8217;s the
+best, but it&#8217;s the one I&#8217;m playing around with. The documentation
+isn&#8217;t very extensive, but you can find some at
+<a href="http://preview.compojure.org">http://preview.compojure.org</a> and there&#8217;s an active
+<a href="http://groups.google.com/group/compojure">Google group</a>. You can grab the code at <a href="http://github.com/weavejester/compojure">GitHub</a>. For getting
+started I recommend this <a href="http://groups.google.com/group/compojure/browse_thread/thread/3c507da23540da6e">short tutorial</a> by Compojure&#8217;s creator,
+James Reeves.</p>
+
+<h2>Google App Engine</h2>
+
+<p><a href="http://appengine.google.com/">Google App Engine</a> (GAE) is a service provided by Google that
+let&#8217;s you develop web applications that can be deployed to Google&#8217;s
+server infrastructure. Google provides several APIs that applications
+can use, e.g. for user authentication and storing data in a
+distributed data store. The idea is that applications can easily scale
+to handle everything from very small to very large loads. When App
+Engine was initially released it only provided a Python runtime
+environment. In April 2009 the Java runtime for App Engine was
+introduced. This opened the door not only for Java programs but for a
+number of languages that run on the JVM, including Clojure.</p>
+
+<h2>The example app: A blog! (yawn)</h2>
+
+<p>I chose to implement a little blogging application to experiment with
+Clojure/Compojure on GAE. This isn&#8217;t very exciting at all and I don&#8217;t
+intend to actually use it. But it is simple and straightforward and
+displays much of the functionality of a typical web app: displaying
+pages, handling form input, storing and retrieving persistent data and
+authenticating users. (Edit: After reading <a href="http://stackoverflow.com/questions/471940/why-does-every-man-and-his-dog-want-to-code-a-blogging-engine">this question</a> on
+stackoverflow I feel a little bad about my choice of example app. But
+at least I&#8217;m in good company&#8230;)</p>
+
+<p>So, that&#8217;s the plan. In the next post I&#8217;ll talk about setting up the
+development environment.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Christian Berg</span></span>
+
+      
+
+
+
+
+<time datetime="Thu Oct 08 00:00:00 +0200 2009" pubdate  updated >Oct 8<span>th</span>, 2009</time>
+
+
+
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/compojureongae/'>compojureongae</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://christianberg.github.com/blog/2009/10/08/compojure-on-gae-whats-this-about" data-via="cdberg" data-counturl="http://christianberg.github.com/blog/2009/10/08/compojure-on-gae-whats-this-about" >Tweet</a>
+  
+  
+  <g:plusone size="medium"></g:plusone>
+  
+</div>
+
+    
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread"><div id="disqus_thread"></div>
+<script type="text/javascript">
+  var disqus_shortname = 'compojureongae';
+  var disqus_identifier = 'http://christianberg.github.com/blog/2009/10/08/compojure-on-gae-whats-this-about';
+  var disqus_url = 'http://christianberg.github.com/blog/2009/10/08/compojure-on-gae-whats-this-about';
+  //var disqus_developer = 1;
+  (function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+  })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+      
+        <aside role=sidebar><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2010/06/09/using-the-app-engine-users-api">Using the App Engine Users API from Clojure</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/06/04/getting-interactive-development-to-work-again">Getting Interactive Development to Work (Again)</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/06/01/accessing-the-app-engine-datastore">Accessing the App Engine Datastore</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/05/11/deploying-to-app-engine">Deploying to App Engine</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2010/05/07/a-fresh-start">A Fresh Start</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating...</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("cdberg", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/cdberg" class="twitter-follow-button" data-width="208px" data-show-count="false">Follow @cdberg</a>
+  
+</section>
+
+
+
+
+
+
+</aside>
+      
+    </div>
+  </div>
+  <footer><p>
+  Copyright &copy; 2009-2011 - Christian Berg -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+</footer>
+</body>
+</html>
