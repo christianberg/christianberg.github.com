@@ -2,44 +2,44 @@
 <urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'>
     <url>
         <loc>
-            http://christianberg.github.com/blog/2009/10/08/compojure-on-gae-whats-this-about
+            http://christianberg.github.com/blog/2009/10/08/compojure-on-gae-whats-this-about/
         </loc>
-        <lastmod>2011-07-29T23:13:29+02:00</lastmod>
+        <lastmod>2011-08-02T06:18:41+00:00</lastmod>
     </url>
     <url>
-        <loc>http://christianberg.github.com/blog/2009/10/24/setting-up-the-dev-environment</loc>
-        <lastmod>2011-07-29T23:13:29+02:00</lastmod>
+        <loc>http://christianberg.github.com/blog/2009/10/24/setting-up-the-dev-environment/</loc>
+        <lastmod>2011-08-02T06:18:41+00:00</lastmod>
     </url>
     <url>
-        <loc>http://christianberg.github.com/blog/2010/05/07/a-fresh-start</loc>
-        <lastmod>2011-07-29T23:13:29+02:00</lastmod>
+        <loc>http://christianberg.github.com/blog/2010/05/07/a-fresh-start/</loc>
+        <lastmod>2011-08-02T06:18:41+00:00</lastmod>
     </url>
     <url>
-        <loc>http://christianberg.github.com/blog/2010/05/11/deploying-to-app-engine</loc>
-        <lastmod>2011-07-29T23:13:29+02:00</lastmod>
+        <loc>http://christianberg.github.com/blog/2010/05/11/deploying-to-app-engine/</loc>
+        <lastmod>2011-08-02T06:18:41+00:00</lastmod>
     </url>
     <url>
         <loc>
-            http://christianberg.github.com/blog/2010/06/01/accessing-the-app-engine-datastore
+            http://christianberg.github.com/blog/2010/06/01/accessing-the-app-engine-datastore/
         </loc>
-        <lastmod>2011-07-29T23:13:29+02:00</lastmod>
+        <lastmod>2011-08-02T06:18:41+00:00</lastmod>
     </url>
     <url>
         <loc>
-            http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again
+            http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again/
         </loc>
-        <lastmod>2011-07-29T23:13:29+02:00</lastmod>
+        <lastmod>2011-08-02T06:18:41+00:00</lastmod>
     </url>
     <url>
-        <loc>http://christianberg.github.com/blog/2010/06/09/using-the-app-engine-users-api</loc>
-        <lastmod>2011-07-29T23:13:29+02:00</lastmod>
-    </url>
-    <url>
-        <loc>http://christianberg.github.com/</loc>
-        <lastmod>2011-07-29T23:13:29+02:00</lastmod>
+        <loc>http://christianberg.github.com/blog/2010/06/09/using-the-app-engine-users-api/</loc>
+        <lastmod>2011-08-02T06:18:41+00:00</lastmod>
     </url>
     <url>
         <loc>http://christianberg.github.com/blog/archives/</loc>
-        <lastmod>2011-07-29T23:13:29+02:00</lastmod>
+        <lastmod>2011-08-02T06:18:41+00:00</lastmod>
+    </url>
+    <url>
+        <loc>http://christianberg.github.com/</loc>
+        <lastmod>2011-08-02T06:18:41+00:00</lastmod>
     </url>
 </urlset>

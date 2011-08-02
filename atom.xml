@@ -4,7 +4,7 @@
   <title></title>
   <link href="http://christianberg.github.com/atom.xml" rel="self"/>
   <link href="http://christianberg.github.com/"/>
-  <updated>2011-07-29T23:36:28+02:00</updated>
+  <updated>2011-08-02T14:58:51+00:00</updated>
   <id>http://christianberg.github.com/</id>
   <author>
     <name>Christian Berg</name>
@@ -14,8 +14,8 @@
   
   <entry>
     <title>Using the App Engine Users API from Clojure</title>
-    <link href="http://christianberg.github.com/blog/2010/06/09/using-the-app-engine-users-api"/>
-    <updated>2010-06-09T00:00:00+02:00</updated>
+    <link href="http://christianberg.github.com/blog/2010/06/09/using-the-app-engine-users-api/"/>
+    <updated>2010-06-09T00:00:00+00:00</updated>
     <id>http://christianberg.github.com/blog/2010/06/09/using-the-app-engine-users-api</id>
     <content type="html">&lt;p&gt;In my previous post about &lt;a href=&quot;/blog/2010/06/01/accessing-the-app-engine-datastore&quot;&gt;Accessing the Datastore&lt;/a&gt; I set up basic
 security using a &lt;code&gt;security-constraint&lt;/code&gt; element in the deployment
@@ -269,8 +269,8 @@ suggestions are very welcome in the comments below!&lt;/p&gt;
   
   <entry>
     <title>Getting Interactive Development to Work (Again)</title>
-    <link href="http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again"/>
-    <updated>2010-06-04T00:00:00+02:00</updated>
+    <link href="http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again/"/>
+    <updated>2010-06-04T00:00:00+00:00</updated>
     <id>http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again</id>
     <content type="html">&lt;p&gt;In my &lt;a href=&quot;/blog/2010/06/01/accessing-the-app-engine-datastore&quot;&gt;last post&lt;/a&gt; I promised to fix my local development setup to
 enable the interactive development style typical for Clojure and make
@@ -481,16 +481,20 @@ command for one of the jars:&lt;/p&gt;
 REPL and code away as usual. To call functions that make use of the
 App Engine API, enter this in the REPL:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;&amp;#39;local-dev&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;local-dev/init-app-engine&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;/code&gt;&lt;/pre&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class='clojure'&gt;(require 'local-dev)
+(local-dev/init-app-engine)&lt;/code&gt;
+  &lt;/pre&gt;
 &lt;/div&gt;
 
 
 &lt;p&gt;To start a Jetty server, just enter:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;local-dev/start-server&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;var&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;example&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
-&lt;/code&gt;&lt;/pre&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class='clojure'&gt;(local-dev/start-server (var example))&lt;/code&gt;
+  &lt;/pre&gt;
 &lt;/div&gt;
 
 
@@ -513,8 +517,8 @@ section below!&lt;/p&gt;
   
   <entry>
     <title>Accessing the App Engine Datastore</title>
-    <link href="http://christianberg.github.com/blog/2010/06/01/accessing-the-app-engine-datastore"/>
-    <updated>2010-06-01T00:00:00+02:00</updated>
+    <link href="http://christianberg.github.com/blog/2010/06/01/accessing-the-app-engine-datastore/"/>
+    <updated>2010-06-01T00:00:00+00:00</updated>
     <id>http://christianberg.github.com/blog/2010/06/01/accessing-the-app-engine-datastore</id>
     <content type="html">&lt;p&gt;In my &lt;a href=&quot;/blog/2010/05/11/deploying-to-app-engine&quot;&gt;last post&lt;/a&gt;, I managed to deploy a Compojure app to Google
 App Engine. Serving static content isn't very exciting, though. Pretty
@@ -695,8 +699,8 @@ not the Clojure way.&lt;/p&gt;
   
   <entry>
     <title>Deploying to App Engine</title>
-    <link href="http://christianberg.github.com/blog/2010/05/11/deploying-to-app-engine"/>
-    <updated>2010-05-11T00:00:00+02:00</updated>
+    <link href="http://christianberg.github.com/blog/2010/05/11/deploying-to-app-engine/"/>
+    <updated>2010-05-11T00:00:00+00:00</updated>
     <id>http://christianberg.github.com/blog/2010/05/11/deploying-to-app-engine</id>
     <content type="html">&lt;p&gt;In my &lt;a href=&quot;/blog/2010/05/07/a-fresh-start&quot;&gt;last post&lt;/a&gt;, I set up a basic Hello World Compojure app,
 running on a local Jetty instance. Now I want to deploy this to Google
@@ -868,8 +872,8 @@ on App Engine, leave a comment below!&lt;/p&gt;
   
   <entry>
     <title>A Fresh Start</title>
-    <link href="http://christianberg.github.com/blog/2010/05/07/a-fresh-start"/>
-    <updated>2010-05-07T00:00:00+02:00</updated>
+    <link href="http://christianberg.github.com/blog/2010/05/07/a-fresh-start/"/>
+    <updated>2010-05-07T00:00:00+00:00</updated>
     <id>http://christianberg.github.com/blog/2010/05/07/a-fresh-start</id>
     <content type="html">&lt;p&gt;Since my last post a lot has happened in Clojure- and
 Compojure-Land. Managing dependencies and building projects is much
@@ -945,8 +949,8 @@ see the output in the shell where you ran lein swank. Now browse to
   
   <entry>
     <title>Setting up the Dev Environment</title>
-    <link href="http://christianberg.github.com/blog/2009/10/24/setting-up-the-dev-environment"/>
-    <updated>2009-10-24T00:00:00+02:00</updated>
+    <link href="http://christianberg.github.com/blog/2009/10/24/setting-up-the-dev-environment/"/>
+    <updated>2009-10-24T00:00:00+00:00</updated>
     <id>http://christianberg.github.com/blog/2009/10/24/setting-up-the-dev-environment</id>
     <content type="html">&lt;p&gt;In this post I'll cover the setup I use for developing my Compojure/GAE app.&lt;/p&gt;
 
@@ -1007,8 +1011,8 @@ Java and unzip it somewhere.&lt;/p&gt;
   
   <entry>
     <title>Compojure on GAE - What's this about?</title>
-    <link href="http://christianberg.github.com/blog/2009/10/08/compojure-on-gae-whats-this-about"/>
-    <updated>2009-10-08T00:00:00+02:00</updated>
+    <link href="http://christianberg.github.com/blog/2009/10/08/compojure-on-gae-whats-this-about/"/>
+    <updated>2009-10-08T00:00:00+00:00</updated>
     <id>http://christianberg.github.com/blog/2009/10/08/compojure-on-gae-whats-this-about</id>
     <content type="html">&lt;p&gt;I'm interested in the Clojure programming language and the Google App
 Engine platform right now, and I'm playing around  with the

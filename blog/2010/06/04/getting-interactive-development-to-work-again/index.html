@@ -16,7 +16,7 @@
 
   
 
-  <link rel="canonical" href="http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again"/>
+  <link rel="canonical" href="http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again/"/>
   <link href="/favicon.png" rel="shortcut icon" />
   <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <script src="/javascripts/modernizr-2.0.js"></script>
@@ -107,7 +107,7 @@
 
 
 
-<time datetime="Fri Jun 04 00:00:00 +0200 2010" pubdate  updated >Jun 4<span>th</span>, 2010</time>
+<time datetime="Fri Jun 04 00:00:00 +0000 2010" pubdate  updated >Jun 4<span>th</span>, 2010</time>
 
 
 </p>
@@ -324,16 +324,20 @@ command for one of the jars:</p>
 REPL and code away as usual. To call functions that make use of the
 App Engine API, enter this in the REPL:</p>
 
-<div class="highlight"><pre><code class="clojure"><span class="p">(</span><span class="nf">require</span> <span class="ss">&#39;local-dev</span><span class="p">)</span>
-<span class="p">(</span><span class="nf">local-dev/init-app-engine</span><span class="p">)</span>
-</code></pre>
+<div>
+  <pre>
+    <code class='clojure'>(require 'local-dev)
+(local-dev/init-app-engine)</code>
+  </pre>
 </div>
 
 
 <p>To start a Jetty server, just enter:</p>
 
-<div class="highlight"><pre><code class="clojure"><span class="p">(</span><span class="nf">local-dev/start-server</span> <span class="p">(</span><span class="nf">var</span> <span class="nv">example</span><span class="p">))</span>
-</code></pre>
+<div>
+  <pre>
+    <code class='clojure'>(local-dev/start-server (var example))</code>
+  </pre>
 </div>
 
 
@@ -366,7 +370,7 @@ section below!</p>
 
 
 
-<time datetime="Fri Jun 04 00:00:00 +0200 2010" pubdate  updated >Jun 4<span>th</span>, 2010</time>
+<time datetime="Fri Jun 04 00:00:00 +0000 2010" pubdate  updated >Jun 4<span>th</span>, 2010</time>
 
 
 
@@ -383,7 +387,7 @@ section below!</p>
     
       <div class="sharing">
   
-  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again" data-via="" data-counturl="http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again" >Tweet</a>
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again/" data-via="" data-counturl="http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again/" >Tweet</a>
   
   
   <g:plusone size="medium"></g:plusone>
@@ -399,8 +403,8 @@ section below!</p>
     <div id="disqus_thread"><div id="disqus_thread"></div>
 <script type="text/javascript">
   var disqus_shortname = 'compojureongae';
-  var disqus_identifier = 'http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again';
-  var disqus_url = 'http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again';
+  var disqus_identifier = 'http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again/';
+  var disqus_url = 'http://christianberg.github.com/blog/2010/06/04/getting-interactive-development-to-work-again/';
   //var disqus_developer = 1;
   (function() {
     var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
@@ -420,23 +424,23 @@ section below!</p>
   <ul id="recent_posts">
     
       <li class="post">
-        <a href="/blog/2010/06/09/using-the-app-engine-users-api">Using the App Engine Users API from Clojure</a>
+        <a href="/blog/2010/06/09/using-the-app-engine-users-api/">Using the App Engine Users API from Clojure</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2010/06/04/getting-interactive-development-to-work-again">Getting Interactive Development to Work (Again)</a>
+        <a href="/blog/2010/06/04/getting-interactive-development-to-work-again/">Getting Interactive Development to Work (Again)</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2010/06/01/accessing-the-app-engine-datastore">Accessing the App Engine Datastore</a>
+        <a href="/blog/2010/06/01/accessing-the-app-engine-datastore/">Accessing the App Engine Datastore</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2010/05/11/deploying-to-app-engine">Deploying to App Engine</a>
+        <a href="/blog/2010/05/11/deploying-to-app-engine/">Deploying to App Engine</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2010/05/07/a-fresh-start">A Fresh Start</a>
+        <a href="/blog/2010/05/07/a-fresh-start/">A Fresh Start</a>
       </li>
     
   </ul>
